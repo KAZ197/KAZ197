@@ -96,6 +96,12 @@
           <button id="btn-prev-week" class="border border-slate-400 px-3 py-1 rounded bg-white hover:bg-slate-100 font-bold transition shadow-sm" title="前週へ">◀ 前週</button>
           <button id="btn-next-week" class="border border-slate-400 px-3 py-1 rounded bg-white hover:bg-slate-100 font-bold transition shadow-sm" title="次週へ">次週 ▶</button>
         </div>
+        <div class="flex items-center gap-1 border border-slate-400 rounded bg-white px-2 py-1 shadow-sm">
+          <span id="shared-status" class="text-[11px] font-bold text-slate-400 whitespace-nowrap">共有データ: 確認中…</span>
+          <button id="btn-shared-connect" class="border border-slate-400 px-2 py-1 rounded bg-white hover:bg-slate-100 font-bold text-[11px] whitespace-nowrap" title="店内の共有フォルダにある共有データファイルに接続します">🔗 接続</button>
+          <button id="btn-shared-new" class="border border-slate-400 px-2 py-1 rounded bg-white hover:bg-slate-100 font-bold text-[11px] whitespace-nowrap" title="共有データファイルを共有フォルダに新規作成します（最初の1台だけ）">🆕 新規作成</button>
+          <button id="btn-shared-disconnect" class="border border-slate-400 px-2 py-1 rounded bg-white hover:bg-slate-100 font-bold text-[11px] whitespace-nowrap hidden" title="共有データの接続を解除します（このPC内のみの保存に戻ります）">✕ 解除</button>
+        </div>
       </div>
 
       <div class="flex items-center gap-2 flex-wrap">
@@ -594,7 +600,251 @@
         console.error(e);
         showToast('保存できませんでした。ブラウザの保存領域を確認してください');
       }
+      scheduleSharedWrite();
     };
+
+    // ===================== 共有データ（店内共有フォルダで複数PCから使う） =====================
+    // 仕組み: 共有フォルダの中に1つのJSONファイルを置き、各PCのブラウザがそこへ直接
+    // 読み書きする。localStorageはPCごとに独立しているため、この仕組みがないと
+    // 「あるPCで入力した内容を別のPCで見る」ことができない。
+    // File System Access API を使うため、対応ブラウザ（Chrome / Edge）が必要。
+    const supportsSharedFS = ('showOpenFilePicker' in window) && ('showSaveFilePicker' in window);
+    const SHARED_DB = 'dlc9_shared_db', SHARED_STORE = 'handles', SHARED_KEY = 'dataFile';
+    const SHARED_POLL_MS = 5000;
+
+    let sharedHandle = null;    // 現在接続中のファイルハンドル
+    let pendingHandle = null;   // 前回接続していたが権限の再許可待ちのハンドル
+    let sharedWriteTimer = null;
+    let sharedPollTimer = null;
+    let lastSharedSavedAt = 0;  // 直近で自分が読み込んだ／書き込んだ共有データの時刻
+
+    const openHandleDB = () => new Promise((resolve, reject) => {
+      const req = indexedDB.open(SHARED_DB, 1);
+      req.onupgradeneeded = () => { req.result.createObjectStore(SHARED_STORE); };
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+    const saveHandleToDB = async (handle) => {
+      const db = await openHandleDB();
+      await new Promise((resolve, reject) => {
+        const tx = db.transaction(SHARED_STORE, 'readwrite');
+        tx.objectStore(SHARED_STORE).put(handle, SHARED_KEY);
+        tx.oncomplete = resolve;
+        tx.onerror = () => reject(tx.error);
+      });
+    };
+    const loadHandleFromDB = async () => {
+      const db = await openHandleDB();
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction(SHARED_STORE, 'readonly');
+        const req = tx.objectStore(SHARED_STORE).get(SHARED_KEY);
+        req.onsuccess = () => resolve(req.result || null);
+        req.onerror = () => reject(req.error);
+      });
+    };
+    const clearHandleFromDB = async () => {
+      const db = await openHandleDB();
+      await new Promise((resolve, reject) => {
+        const tx = db.transaction(SHARED_STORE, 'readwrite');
+        tx.objectStore(SHARED_STORE).delete(SHARED_KEY);
+        tx.oncomplete = resolve;
+        tx.onerror = () => reject(tx.error);
+      });
+    };
+
+    const setSharedStatus = (kind, msg) => {
+      const el = document.getElementById('shared-status');
+      if (!el) return;
+      const colors = { ok: 'text-emerald-700', error: 'text-red-600', prompt: 'text-amber-600', off: 'text-slate-400' };
+      el.className = `text-[11px] font-bold whitespace-nowrap ${colors[kind] || 'text-slate-500'}`;
+      el.textContent = msg;
+    };
+
+    const snapshotAppData = () => ({
+      staffMembers: state.staffMembers,
+      positions: state.positions,
+      shiftTypes: state.shiftTypes,
+      shiftsData: state.shiftsData,
+      assignData: state.assignData,
+      banPatterns: state.banPatterns,
+      banPairs: state.banPairs,
+      savedAt: Date.now()
+    });
+
+    const applySharedData = (data) => {
+      if (!data || typeof data !== 'object') return;
+      if (Array.isArray(data.staffMembers)) state.staffMembers = data.staffMembers.map(normStaff);
+      if (Array.isArray(data.positions)) state.positions = data.positions.map(normPosition);
+      if (Array.isArray(data.shiftTypes) && data.shiftTypes.length) state.shiftTypes = data.shiftTypes.map(normShiftType);
+      if (data.shiftsData && typeof data.shiftsData === 'object') state.shiftsData = data.shiftsData;
+      if (data.assignData && typeof data.assignData === 'object') state.assignData = data.assignData;
+      if (Array.isArray(data.banPatterns)) state.banPatterns = data.banPatterns;
+      if (Array.isArray(data.banPairs)) state.banPairs = data.banPairs;
+      lastSharedSavedAt = data.savedAt || Date.now();
+      try {
+        localStorage.setItem(K.staff, JSON.stringify(state.staffMembers));
+        localStorage.setItem(K.pos, JSON.stringify(state.positions));
+        localStorage.setItem(K.shiftTypes, JSON.stringify(state.shiftTypes));
+        localStorage.setItem(K.shifts, JSON.stringify(state.shiftsData));
+        localStorage.setItem(K.assign, JSON.stringify(state.assignData));
+        localStorage.setItem(K.rules, JSON.stringify({ banPatterns: state.banPatterns, banPairs: state.banPairs }));
+      } catch (e) { console.warn(e); }
+    };
+
+    const readSharedFile = async () => {
+      if (!sharedHandle) return null;
+      try {
+        const perm = await sharedHandle.queryPermission({ mode: 'readwrite' });
+        if (perm !== 'granted') return null;
+        const file = await sharedHandle.getFile();
+        const text = await file.text();
+        if (!text.trim()) return null;
+        return JSON.parse(text);
+      } catch (e) {
+        console.warn('共有データの読込に失敗:', e);
+        return null;
+      }
+    };
+
+    const writeSharedFile = async () => {
+      if (!sharedHandle) return;
+      try {
+        const perm = await sharedHandle.queryPermission({ mode: 'readwrite' });
+        if (perm !== 'granted') return;
+        const data = snapshotAppData();
+        const writable = await sharedHandle.createWritable();
+        await writable.write(JSON.stringify(data, null, 2));
+        await writable.close();
+        lastSharedSavedAt = data.savedAt;
+        setSharedStatus('ok', `共有中: ${sharedHandle.name}`);
+      } catch (e) {
+        console.warn('共有データの保存に失敗:', e);
+        setSharedStatus('error', '共有データへの保存に失敗しました（共有フォルダに接続できているか確認してください）');
+      }
+    };
+
+    const scheduleSharedWrite = () => {
+      if (!sharedHandle) return;
+      clearTimeout(sharedWriteTimer);
+      sharedWriteTimer = setTimeout(writeSharedFile, 400);
+    };
+
+    // 他のPCが更新していないか、定期的に見に行く（プッシュ通知ではないため）
+    const pollSharedFile = async () => {
+      if (!sharedHandle || document.hidden) return;
+      const data = await readSharedFile();
+      if (data && data.savedAt && data.savedAt > lastSharedSavedAt) {
+        applySharedData(data);
+        renderTable();
+        showToast('他のPCの更新内容を取り込みました');
+      }
+    };
+    const startSharedPolling = () => {
+      stopSharedPolling();
+      sharedPollTimer = setInterval(pollSharedFile, SHARED_POLL_MS);
+      window.addEventListener('focus', pollSharedFile);
+    };
+    const stopSharedPolling = () => {
+      if (sharedPollTimer) clearInterval(sharedPollTimer);
+      sharedPollTimer = null;
+      window.removeEventListener('focus', pollSharedFile);
+    };
+
+    const activateSharedHandle = async (handle, isNewFile) => {
+      sharedHandle = handle;
+      pendingHandle = null;
+      await saveHandleToDB(handle);
+      if (isNewFile) {
+        await writeSharedFile();
+      } else {
+        const data = await readSharedFile();
+        if (data) { applySharedData(data); renderTable(); }
+        else { await writeSharedFile(); } // 空ファイルだった場合は現在の内容を書き込む
+      }
+      setSharedStatus('ok', `共有中: ${handle.name}`);
+      document.getElementById('btn-shared-connect').textContent = '🔗 接続';
+      document.getElementById('btn-shared-disconnect').classList.remove('hidden');
+      startSharedPolling();
+    };
+
+    const connectSharedExisting = async () => {
+      if (!supportsSharedFS) { showToast('このブラウザは共有機能に対応していません（Chrome/Edgeをお使いください）'); return; }
+      try {
+        const [handle] = await window.showOpenFilePicker({
+          types: [{ description: '共有データ(JSON)', accept: { 'application/json': ['.json'] } }],
+          excludeAcceptAllOption: false, multiple: false
+        });
+        const perm = await handle.requestPermission({ mode: 'readwrite' });
+        if (perm !== 'granted') { showToast('書き込み権限が許可されませんでした'); return; }
+        await activateSharedHandle(handle, false);
+        showToast('共有データに接続しました');
+      } catch (e) {
+        if (e && e.name !== 'AbortError') { console.error(e); showToast('接続に失敗しました'); }
+      }
+    };
+
+    const connectSharedNew = async () => {
+      if (!supportsSharedFS) { showToast('このブラウザは共有機能に対応していません（Chrome/Edgeをお使いください）'); return; }
+      try {
+        const handle = await window.showSaveFilePicker({
+          suggestedName: 'delica_position_data.json',
+          types: [{ description: '共有データ(JSON)', accept: { 'application/json': ['.json'] } }]
+        });
+        const perm = await handle.requestPermission({ mode: 'readwrite' });
+        if (perm !== 'granted') { showToast('書き込み権限が許可されませんでした'); return; }
+        await activateSharedHandle(handle, true);
+        showToast('共有データを新規作成しました。他のPCでは「🔗 接続」からこのファイルを選んでください');
+      } catch (e) {
+        if (e && e.name !== 'AbortError') { console.error(e); showToast('作成に失敗しました'); }
+      }
+    };
+
+    const disconnectShared = async () => {
+      sharedHandle = null;
+      pendingHandle = null;
+      await clearHandleFromDB();
+      stopSharedPolling();
+      setSharedStatus('off', '共有データ: 未接続（このPC内のみ保存）');
+      document.getElementById('btn-shared-disconnect').classList.add('hidden');
+      document.getElementById('btn-shared-connect').textContent = '🔗 接続';
+      showToast('共有データの接続を解除しました');
+    };
+
+    const initShared = async () => {
+      if (!supportsSharedFS) {
+        setSharedStatus('off', 'このブラウザは共有機能に非対応です（Chrome/Edge推奨）');
+        return;
+      }
+      const handle = await loadHandleFromDB().catch(() => null);
+      if (!handle) { setSharedStatus('off', '共有データ: 未接続（このPC内のみ保存）'); return; }
+      const perm = await handle.queryPermission({ mode: 'readwrite' }).catch(() => 'denied');
+      if (perm === 'granted') {
+        await activateSharedHandle(handle, false);
+      } else {
+        pendingHandle = handle;
+        setSharedStatus('prompt', `「${handle.name}」への再接続が必要です →`);
+        document.getElementById('btn-shared-connect').textContent = '🔓 許可する';
+      }
+    };
+
+    document.getElementById('btn-shared-connect').addEventListener('click', async () => {
+      if (pendingHandle) {
+        try {
+          const perm = await pendingHandle.requestPermission({ mode: 'readwrite' });
+          if (perm === 'granted') {
+            const h = pendingHandle;
+            await activateSharedHandle(h, false);
+            showToast('共有データに再接続しました');
+          } else {
+            showToast('権限が許可されませんでした');
+          }
+        } catch (e) { console.error(e); showToast('再接続に失敗しました'); }
+        return;
+      }
+      connectSharedExisting();
+    });
+    document.getElementById('btn-shared-new').addEventListener('click', connectSharedNew);
+    document.getElementById('btn-shared-disconnect').addEventListener('click', disconnectShared);
 
     // ===================== 参照ヘルパー =====================
     const posByName = (name) => state.positions.filter(p => p.name === name)[0] || null;
@@ -1708,6 +1958,7 @@
       // 初回だけ、新ルールに沿ったサンプル週を自動で組む
       try { runAutoGenerate(); } catch (e) { console.error(e); }
     }
+    initShared();
   })();
   </script>
 </body>
