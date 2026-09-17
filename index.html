@@ -1,0 +1,1714 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=1280">
+  <title>調布店デリカ部門 ポジション表 (PC版 v9)</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <style>
+    body {
+      font-family: "Helvetica Neue", Arial, "Hiragino Kaku Gothic ProN", "Hiragino Sans", Meiryo, sans-serif;
+      user-select: none;
+    }
+    input, textarea, select { user-select: text; }
+
+    @media print {
+      @page { size: A4 landscape; margin: 3mm; }
+      body { -webkit-print-color-adjust: exact; print-color-adjust: exact; background: white !important; padding: 0 !important; margin: 0 !important; width: 100% !important; min-width: 0 !important;}
+      .print-hidden { display: none !important; }
+      #app-container { box-shadow: none !important; border: none !important; margin: 0 !important; padding: 0 !important; width: 100% !important; max-width: none !important; }
+      #capture-area { padding: 0 !important; width: 100% !important; }
+      #capture-area table { border: 2px solid #0f172a !important; font-size: 11pt !important; table-layout: fixed !important; }
+      #capture-area th, #capture-area td { border: 1.5px solid #1e293b !important; padding: 4px !important; }
+      .capture-mode-text { font-size: 11pt !important; padding: 4px 2px !important; }
+      .capture-mode-text-sm { font-size: 10pt !important; padding: 4px 1px !important; }
+      .capture-mode-text-xs { font-size: 9pt !important; padding: 4px 1px !important; }
+      .capture-mode-name { font-size: 12pt !important; }
+      .capture-mode-th { font-size: 12pt !important; }
+      .capture-mode-th-narrow { font-size: 12pt !important; padding: 4px 1px !important; }
+      .capture-mode-date { font-size: 14pt !important; }
+    }
+
+    .hide-arrow {
+      -webkit-appearance: none;
+      -moz-appearance: none;
+      appearance: none;
+      background-image: none;
+    }
+    .row-hover:hover td { background-color: #f1f5f9 !important; }
+    .cell-hover:hover { outline: 2px solid #2563eb; outline-offset: -2px; }
+    body.modal-open { overflow: hidden; }
+
+    #capture-area table {
+      border-collapse: collapse !important;
+      border: 2px solid #0f172a !important;
+      width: 100%;
+    }
+    #capture-area th,
+    #capture-area td { border: 1.5px solid #1e293b !important; }
+
+    .capture-mode-text { font-size: 16px !important; padding: 10px 4px !important; }
+    .capture-mode-text-sm { font-size: 14px !important; padding: 10px 2px !important; }
+    .capture-mode-text-xs { font-size: 13px !important; padding: 10px 1px !important; letter-spacing: -0.03em; }
+    .capture-mode-name { font-size: 18px !important; padding: 10px 4px !important; }
+    .capture-mode-th   { font-size: 18px !important; padding: 12px 6px !important; }
+    .capture-mode-th-narrow { font-size: 18px !important; padding: 12px 2px !important; white-space: nowrap; }
+    .capture-mode-date { font-size: 22px !important; }
+
+    /* 画像保存中は画面幅に関係なく一定の横幅で組む（狭い画面で文字が潰れるのを防ぐ） */
+    body.capture-fixed #capture-area { width: 1600px !important; max-width: none !important; }
+    /* 画像・印刷時は列幅を固定。内容の長さで列幅が変わらないようにする */
+    body.capture-mode #capture-area table { table-layout: fixed !important; }
+
+    /* テーブルセルを高さ100%で分割するための下敷き */
+    .h-px { height: 1px; }
+
+    #toast {
+      position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%);
+      background: #0f172a; color: #fff; padding: 10px 18px; border-radius: 6px;
+      font-weight: bold; font-size: 13px; z-index: 80; opacity: 0;
+      transition: opacity .2s; pointer-events: none;
+    }
+    #toast.show { opacity: 1; }
+  </style>
+</head>
+<body class="bg-slate-200 text-slate-900 p-4 text-xs">
+
+  <div id="cdn-warn" class="hidden max-w-[1500px] mx-auto mb-3 border-2 border-red-500 bg-red-50 text-red-700 p-3 rounded font-bold">
+    ⚠ スタイル(Tailwind CDN)を読み込めませんでした。社内ネットワークが遮断されている可能性があります。表示は崩れますが、入力・保存・自動割当は動作します。
+  </div>
+
+  <div class="w-full max-w-[1500px] mx-auto bg-white rounded-lg shadow-md border border-slate-300 p-4" id="app-container">
+
+    <!-- ツールバー -->
+    <div class="flex items-center justify-between border-b border-slate-300 pb-3 mb-3 bg-slate-50 p-3 rounded-md print-hidden gap-3 flex-wrap">
+      <div class="flex items-center space-x-4">
+        <div class="flex items-center space-x-2">
+          <span class="font-black text-sm text-slate-800 tracking-wide">🍱 調布店デリカ ポジション管理</span>
+          <span class="bg-slate-700 text-white text-[10px] px-2 py-0.5 rounded font-mono">PC版 v9</span>
+        </div>
+        <div class="flex items-center border border-slate-400 rounded bg-white px-2 py-1 shadow-sm">
+          <span class="mr-2 text-slate-500 font-bold">対象週開始日:</span>
+          <input type="date" id="start-date-input" class="bg-transparent font-bold focus:outline-none cursor-pointer text-slate-800">
+        </div>
+        <div class="flex gap-1">
+          <button id="btn-prev-week" class="border border-slate-400 px-3 py-1 rounded bg-white hover:bg-slate-100 font-bold transition shadow-sm" title="前週へ">◀ 前週</button>
+          <button id="btn-next-week" class="border border-slate-400 px-3 py-1 rounded bg-white hover:bg-slate-100 font-bold transition shadow-sm" title="次週へ">次週 ▶</button>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-2 flex-wrap">
+        <button id="btn-staff-modal" class="bg-slate-700 text-white font-bold px-3 py-1.5 rounded transition flex items-center gap-1 shadow hover:bg-slate-600" title="スタッフの追加・担当可能項目・曜日ごとの基本パターン">
+          ⚙️ スタッフ管理
+        </button>
+        <button id="btn-rule-modal" class="bg-slate-700 text-white font-bold px-3 py-1.5 rounded transition flex items-center gap-1 shadow hover:bg-slate-600" title="出勤区分・項目(ポジション)の追加・編集とルール設定">
+          📝 区分・項目・ルール
+        </button>
+        <button id="btn-auto-gen" class="bg-amber-500 text-slate-900 border border-amber-600 font-bold px-4 py-1.5 rounded transition flex items-center gap-1 shadow hover:bg-amber-400" title="ショートカット: Ctrl + Enter">
+          ⚡ 全自動割当 (Ctrl+Enter)
+        </button>
+        <button id="btn-undo" class="border border-slate-400 bg-white px-3 py-1.5 rounded font-bold shadow-sm hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed" title="直前の操作を取り消す (Ctrl+Z)" disabled>
+          ↩ 元に戻す
+        </button>
+        <button id="btn-copy-tsv" class="bg-emerald-600 text-white font-bold px-3 py-1.5 rounded transition flex items-center gap-1 shadow hover:bg-emerald-500" title="Excel貼り付け用テキストをコピー">
+          📋 TSVコピー
+        </button>
+        <button id="btn-save-img" class="bg-indigo-700 text-white font-bold px-4 py-1.5 rounded transition flex items-center gap-1 shadow hover:bg-indigo-600" title="PNG画像として保存 (Ctrl + S)">
+          💾 画像保存 (Ctrl+S)
+        </button>
+        <button id="btn-print" class="border border-slate-400 bg-white px-3 py-1.5 rounded font-bold shadow-sm hover:bg-slate-100" title="A4横で印刷">
+          🖨 印刷
+        </button>
+        <button id="btn-reset" class="border border-red-400 bg-red-50 text-red-600 font-bold px-3 py-1.5 rounded transition shadow hover:bg-red-100">
+          初期化
+        </button>
+      </div>
+    </div>
+
+    <!-- ポジション表 -->
+    <div class="overflow-x-auto">
+      <div id="capture-area" class="bg-white p-2">
+        <table class="w-full border-collapse border-2 border-slate-800 text-center font-bold text-[12px]">
+          <colgroup id="table-cols"></colgroup>
+          <thead id="table-head"></thead>
+          <tbody id="table-body"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- 警告パネル -->
+    <div id="warn-panel" class="mt-3 print-hidden"></div>
+
+    <div class="mt-3 pt-2 border-t border-slate-200 text-[11px] text-slate-500 flex justify-between items-center print-hidden gap-4">
+      <div>
+        <span class="font-bold">ショートカット:</span>
+        <kbd class="bg-slate-100 border border-slate-300 rounded px-1">Ctrl</kbd>+<kbd class="bg-slate-100 border border-slate-300 rounded px-1">Enter</kbd> 全自動割当 /
+        <kbd class="bg-slate-100 border border-slate-300 rounded px-1">Ctrl</kbd>+<kbd class="bg-slate-100 border border-slate-300 rounded px-1">S</kbd> 画像保存 /
+        <kbd class="bg-slate-100 border border-slate-300 rounded px-1">Ctrl</kbd>+<kbd class="bg-slate-100 border border-slate-300 rounded px-1">Z</kbd> 元に戻す
+      </div>
+      <div>調布店デリカ部門 運用シフト管理 v9.0（項目編集対応・ソルバー再構築版）</div>
+    </div>
+  </div>
+
+  <!-- スタッフ管理モーダル -->
+  <div id="staff-modal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 hidden print-hidden">
+    <div class="bg-white rounded-lg shadow-2xl w-full max-w-[1500px] flex flex-col max-h-[92vh]">
+      <div class="p-3 bg-slate-800 text-white flex justify-between items-center rounded-t-lg">
+        <h2 class="font-bold text-sm">⚙️ スタッフ管理（並び順・固定項目・担当できる項目・曜日ごとの基本パターン）</h2>
+        <button id="btn-close-staff-modal" class="p-1 hover:bg-slate-600 rounded" title="閉じる">❌</button>
+      </div>
+      <div class="overflow-y-auto p-4 flex-1">
+        <table class="w-full text-xs text-left border-collapse">
+          <thead>
+            <tr class="border-b bg-slate-100 text-slate-700">
+              <th class="p-2 w-16">順序</th>
+              <th class="p-2 w-28">名前</th>
+              <th class="p-2 w-28">固定項目</th>
+              <th class="p-2">担当できる項目</th>
+              <th class="p-2 w-16 text-center">単独</th>
+              <th class="p-2 w-20 text-center">週1回ずつ</th>
+              <th class="p-2 w-[34rem]">基本パターン（曜日ごと）</th>
+              <th class="p-2 w-16 text-center">操作</th>
+            </tr>
+          </thead>
+          <tbody id="staff-modal-body"></tbody>
+        </table>
+        <div class="mt-4 flex items-center gap-4">
+          <button id="btn-add-staff" class="bg-blue-600 text-white px-3 py-1.5 rounded font-bold hover:bg-blue-700 shadow">➕ 新規スタッフ追加</button>
+          <p class="text-[11px] text-slate-500 leading-relaxed">
+            <span class="font-bold">固定項目</span>…出勤日は常にその項目に入る（例: リーダー=値・品、風間=寿司）。<br>
+            <span class="font-bold">担当できる項目</span>…チェックが1つも無い場合は「全項目OK」として扱います。<br>
+            <span class="font-bold">単独</span>…その人が入った項目には他の人を同時に入れない（例: 青柳）。<br>
+            <span class="font-bold">週1回ずつ</span>…週の中で各項目に1回ずつ入るように回す。同じ項目の2回目以降はやむを得ない場合だけ。<br>
+            <span class="font-bold">基本パターン</span>…曜日ごとの標準の勤務区分。公休以外（午前のみ・遅番など）も指定できます（例: 所さんは日曜=午前のみ）。表の中で個別に変えた日は、そちらが優先されます。
+          </p>
+        </div>
+      </div>
+      <div class="p-3 border-t flex justify-end gap-2 bg-slate-50 rounded-b-lg">
+        <button id="btn-cancel-staff" class="px-4 py-1.5 border border-slate-400 bg-white rounded font-bold text-slate-700 hover:bg-slate-100">キャンセル</button>
+        <button id="btn-save-staff" class="px-4 py-1.5 bg-emerald-600 text-white rounded font-bold hover:bg-emerald-500 shadow">💾 確定して保存</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 項目・ルールモーダル -->
+  <div id="rule-modal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 hidden print-hidden">
+    <div class="bg-white rounded-lg shadow-2xl w-full max-w-5xl flex flex-col max-h-[92vh]">
+      <div class="p-3 bg-slate-800 text-white flex justify-between items-center rounded-t-lg">
+        <h2 class="font-bold text-sm">📝 区分・項目（ポジション）・ルールの設定</h2>
+        <button id="btn-close-rule-modal" class="p-1 hover:bg-slate-600 rounded" title="閉じる">❌</button>
+      </div>
+      <div class="overflow-y-auto p-4 flex-1 space-y-6">
+
+        <section>
+          <h3 class="font-bold text-sm mb-2 text-slate-800">出勤・休みの区分（表のプルダウンに出る項目）</h3>
+          <table class="w-full text-xs border-collapse">
+            <thead>
+              <tr class="border-b bg-slate-100 text-slate-700 text-left">
+                <th class="p-2 w-16">順序</th>
+                <th class="p-2 w-40">表示名</th>
+                <th class="p-2 w-20 text-center">午前勤務</th>
+                <th class="p-2 w-20 text-center">午後勤務</th>
+                <th class="p-2 w-28">背景色</th>
+                <th class="p-2">プレビュー</th>
+                <th class="p-2 w-16 text-center">操作</th>
+              </tr>
+            </thead>
+            <tbody id="shift-modal-body"></tbody>
+          </table>
+          <div class="mt-3 flex items-start gap-4">
+            <button id="btn-add-shift" class="bg-blue-600 text-white px-3 py-1.5 rounded font-bold hover:bg-blue-700 shadow whitespace-nowrap">➕ 区分を追加</button>
+            <p class="text-[11px] text-slate-500 leading-relaxed">
+              午前・午後のチェックが勤務時間の判定に使われます。両方チェック＝終日出勤、両方なし＝休み（表にはこの表示名がそのまま入ります）。<br>
+              「中番」「研修」などもここで追加できます。使用中の区分を削除すると、その日は終日出勤として扱われます。
+            </p>
+          </div>
+        </section>
+
+        <section>
+          <h3 class="font-bold text-sm mb-2 text-slate-800">項目一覧（名前は自由に書き換えできます）</h3>
+          <table class="w-full text-xs border-collapse">
+            <thead>
+              <tr class="border-b bg-slate-100 text-slate-700 text-left">
+                <th class="p-2 w-16">順序</th>
+                <th class="p-2 w-40">項目名</th>
+                <th class="p-2 w-14 text-center">午前</th>
+                <th class="p-2 w-14 text-center">午後</th>
+                <th class="p-2 w-16 text-center">定員</th>
+                <th class="p-2 w-16 text-center">必須</th>
+                <th class="p-2 w-20 text-center">連続OK</th>
+                <th class="p-2 w-24 text-center">週1回まで</th>
+                <th class="p-2 w-16 text-center">操作</th>
+              </tr>
+            </thead>
+            <tbody id="pos-modal-body"></tbody>
+          </table>
+          <div class="mt-3 flex items-start gap-4">
+            <button id="btn-add-pos" class="bg-blue-600 text-white px-3 py-1.5 rounded font-bold hover:bg-blue-700 shadow whitespace-nowrap">➕ 項目を追加</button>
+            <p class="text-[11px] text-slate-500 leading-relaxed">
+              <span class="font-bold">必須</span>…その時間帯で空きにしない（例: 鉄板は午後のみ必須）。
+              <span class="font-bold">連続OK</span>…午前と午後で同じ項目を続けてよい。
+              <span class="font-bold">週1回まで</span>…同じ人が週に2回以上入らないようにする。<br>
+              項目名を変更すると、保存済みの表の中身も自動で新しい名前に置き換わります。
+            </p>
+          </div>
+        </section>
+
+        <section>
+          <h3 class="font-bold text-sm mb-2 text-slate-800">禁止パターン（午前 → 午後 のつなぎ）</h3>
+          <div id="ban-pattern-list" class="flex flex-wrap gap-2 mb-2"></div>
+          <div class="flex items-center gap-2">
+            <select id="bp-am" class="border border-slate-300 rounded p-1 text-xs"></select>
+            <span class="font-bold">→</span>
+            <select id="bp-pm" class="border border-slate-300 rounded p-1 text-xs"></select>
+            <button id="btn-add-bp" class="bg-slate-700 text-white px-3 py-1 rounded font-bold hover:bg-slate-600">追加</button>
+          </div>
+        </section>
+
+        <section>
+          <h3 class="font-bold text-sm mb-2 text-slate-800">同じ項目に入れない組み合わせ</h3>
+          <div id="ban-pair-list" class="flex flex-wrap gap-2 mb-2"></div>
+          <div class="flex items-center gap-2">
+            <select id="bpair-a" class="border border-slate-300 rounded p-1 text-xs"></select>
+            <span class="font-bold">×</span>
+            <select id="bpair-b" class="border border-slate-300 rounded p-1 text-xs"></select>
+            <button id="btn-add-bpair" class="bg-slate-700 text-white px-3 py-1 rounded font-bold hover:bg-slate-600">追加</button>
+          </div>
+        </section>
+      </div>
+      <div class="p-3 border-t flex justify-end gap-2 bg-slate-50 rounded-b-lg">
+        <button id="btn-cancel-rule" class="px-4 py-1.5 border border-slate-400 bg-white rounded font-bold text-slate-700 hover:bg-slate-100">キャンセル</button>
+        <button id="btn-save-rule" class="px-4 py-1.5 bg-emerald-600 text-white rounded font-bold hover:bg-emerald-500 shadow">💾 確定して保存</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 画像の受け渡し用（ダウンロードが許可されない環境の逃げ道） -->
+  <div id="img-overlay" class="fixed inset-0 z-[60] hidden bg-black/70 p-4 print-hidden overflow-auto">
+    <div class="bg-white rounded-lg w-full max-w-[1200px] mx-auto shadow-2xl">
+      <div class="p-3 bg-slate-800 text-white flex justify-between items-center rounded-t-lg">
+        <h2 class="font-bold text-sm">💾 画像ができました</h2>
+        <button id="btn-close-img" class="p-1 hover:bg-slate-600 rounded" title="閉じる">❌</button>
+      </div>
+      <div class="p-4">
+        <p class="text-[12px] text-slate-700 font-bold mb-2">
+          プレビュー枠の中ではブラウザがファイルの保存をブロックします。下のボタンが効かない場合は、画像を右クリック（スマホは長押し）→「画像を保存」してください。
+        </p>
+        <div class="flex gap-2 mb-3 flex-wrap">
+          <a id="img-dl-link" href="#" download="" class="bg-indigo-700 text-white font-bold px-4 py-1.5 rounded shadow hover:bg-indigo-600">⬇ 保存する</a>
+          <button id="btn-img-copy" class="bg-emerald-600 text-white font-bold px-4 py-1.5 rounded shadow hover:bg-emerald-500">📋 画像をコピー</button>
+          <button id="btn-img-tab" class="border border-slate-400 bg-white font-bold px-4 py-1.5 rounded shadow-sm hover:bg-slate-100">↗ 別タブで開く</button>
+        </div>
+        <img id="img-preview" alt="ポジション表" class="border border-slate-300 max-w-full">
+      </div>
+    </div>
+  </div>
+
+  <div id="toast"></div>
+
+  <script>
+  (function () {
+    'use strict';
+
+    // ===================== 定数 =====================
+    const WEEKDAYS = ['月', '火', '水', '木', '金', '土', '日'];
+    const DOW_BY_INDEX = ['日', '月', '火', '水', '木', '金', '土'];
+    const NONE = '—';
+    const CUSTOM = '__CUSTOM__';
+
+    // 勤務区分（画面から追加・編集できます）
+    const DEFAULT_SHIFT_TYPES = [
+      { key: 'WORK',            label: '終日出勤', am: true,  pm: true,  bg: 'bg-white' },
+      { key: 'WORK_AM',         label: '午前のみ', am: true,  pm: false, bg: 'bg-white' },
+      { key: 'WORK_EARLY',      label: '早退',     am: true,  pm: false, bg: 'bg-white' },
+      { key: 'WORK_LATE',       label: '遅番',     am: false, pm: true,  bg: 'bg-white' },
+      { key: 'OFF',             label: '公休',     am: false, pm: false, bg: 'bg-slate-300' },
+      { key: 'MY_OFF',          label: 'マイ休',   am: false, pm: false, bg: 'bg-emerald-200' },
+      { key: 'PAID',            label: '有給',     am: false, pm: false, bg: 'bg-yellow-300' },
+      { key: 'CONTINUOUS_OFF',  label: '連続休',   am: false, pm: false, bg: 'bg-yellow-300' }
+    ];
+
+    const COLOR_CHOICES = [
+      { value: 'bg-white',        label: '白' },
+      { value: 'bg-slate-300',    label: 'グレー' },
+      { value: 'bg-yellow-300',   label: '黄' },
+      { value: 'bg-emerald-200',  label: '緑' },
+      { value: 'bg-orange-200',   label: 'オレンジ' },
+      { value: 'bg-sky-200',      label: '水色' },
+      { value: 'bg-rose-200',     label: 'ピンク' },
+      { value: 'bg-violet-200',   label: '紫' }
+    ];
+
+    const shiftTypeList = () => state.shiftTypes;
+    const findShiftType = (key) => {
+      const list = state.shiftTypes;
+      for (let i = 0; i < list.length; i++) if (list[i].key === key) return list[i];
+      return null;
+    };
+    const defaultWorkKey = () => {
+      const list = state.shiftTypes;
+      const full = list.filter(t => t.am && t.pm)[0] || list.filter(t => t.am || t.pm)[0];
+      return full ? full.key : (list[0] ? list[0].key : 'WORK');
+    };
+    const defaultOffKey = () => {
+      const list = state.shiftTypes;
+      const off = list.filter(t => !t.am && !t.pm)[0];
+      return off ? off.key : defaultWorkKey();
+    };
+    const shiftDef = (key) => findShiftType(key) || findShiftType(defaultWorkKey())
+      || { key: 'WORK', label: '終日出勤', am: true, pm: true, bg: 'bg-white' };
+    const isWorkAM = (key) => shiftDef(key).am;
+    const isWorkPM = (key) => shiftDef(key).pm;
+    const isOffShift = (key) => !shiftDef(key).am && !shiftDef(key).pm;
+
+    // 既定の項目マスタ（鉄板は午後のみ／コンベサポは廃止）
+    // 週の重複は「スタッフごとの週1回ずつ」で見るので、項目側の週1回まではすべてOFF
+    const DEFAULT_POSITIONS = [
+      { name: 'フライヤー', am: true,  pm: true,  cap: 1, required: true,  allowSame: false, weeklyOnce: false },
+      { name: '天ぷら',     am: true,  pm: false, cap: 1, required: true,  allowSame: false, weeklyOnce: false },
+      { name: '鉄板',       am: false, pm: true,  cap: 1, required: true,  allowSame: false, weeklyOnce: false },
+      { name: 'コンベ',     am: true,  pm: true,  cap: 1, required: true,  allowSame: false, weeklyOnce: false },
+      { name: '寿司',       am: true,  pm: true,  cap: 1, required: false, allowSame: true,  weeklyOnce: false },
+      { name: '値・品',     am: true,  pm: true,  cap: 1, required: true,  allowSame: true,  weeklyOnce: false },
+      { name: '盛付',       am: true,  pm: true,  cap: 2, required: true,  allowSame: true,  weeklyOnce: false },
+      { name: '弁当',       am: true,  pm: true,  cap: 2, required: true,  allowSame: false, weeklyOnce: false }
+    ];
+
+    // 役割が固定されていて、同じポジションの重複が避けられない人たち
+    const NO_ROTATE_NAMES = ['リーダー', '瓜生', '末木', '青木', '風間', '青柳', 'ホイ'];
+
+    const GENERAL = ['フライヤー', '天ぷら', '鉄板', 'コンベ', '盛付', '弁当'];
+    const DEFAULT_STAFF = [
+      { id: 'inami',     name: 'リーダー', fixed: '値・品', allowed: [],                        solo: false, rotate: false, weekly: { 火:'OFF', 土:'OFF' } },
+      { id: 'sueki',     name: '瓜生',     fixed: '',       allowed: ['値・品', '盛付', '弁当'], solo: false, rotate: false, weekly: { 月:'OFF', 金:'OFF' } },
+      { id: 'aoki',      name: '青木',     fixed: '',       allowed: GENERAL.slice(),            solo: false, rotate: false, weekly: { 木:'OFF', 日:'OFF' } },
+      { id: 'kazama',    name: '風間',     fixed: '寿司',   allowed: [],                         solo: false, rotate: false, weekly: { 水:'OFF', 日:'OFF' } },
+      { id: 'kanai',     name: '金井',     fixed: '',       allowed: GENERAL.slice(),            solo: false, rotate: true,  weekly: { 火:'OFF', 金:'OFF' } },
+      { id: 'imai',      name: '今井',     fixed: '',       allowed: GENERAL.slice(),            solo: false, rotate: true,  weekly: { 水:'OFF', 日:'OFF' } },
+      { id: 'tokoro',    name: '所',       fixed: '',       allowed: GENERAL.slice(),            solo: false, rotate: true,  weekly: { 木:'OFF', 日:'WORK_AM' } },
+      { id: 'matsuoka',  name: '松岡',     fixed: '',       allowed: GENERAL.slice(),            solo: false, rotate: true,  weekly: { 月:'OFF', 水:'OFF', 金:'OFF', 土:'OFF' } },
+      { id: 'kobayashi', name: '小林',     fixed: '',       allowed: GENERAL.slice(),            solo: false, rotate: true,  weekly: { 火:'OFF', 金:'OFF' } },
+      { id: 'aoyagi',    name: '青柳',     fixed: '',       allowed: ['コンベ', '弁当'],         solo: true,  rotate: false, weekly: {} },
+      { id: 'nagaki',    name: '長岐',     fixed: '',       allowed: GENERAL.slice(),            solo: false, rotate: true,  weekly: { 木:'OFF', 日:'OFF' } },
+      { id: 'hoi',       name: 'ホイ',     fixed: '',       allowed: ['フライヤー', '盛付'],     solo: false, rotate: false, weekly: { 水:'OFF', 土:'OFF' } }
+    ];
+
+    // 午前→午後で禁止するつなぎ（ここは画面から自由に追加・削除できます）
+    const DEFAULT_BAN_PATTERNS = [
+      ['フライヤー', 'コンベ'],
+      ['フライヤー', '鉄板'],
+      ['天ぷら', 'フライヤー'],
+      ['天ぷら', '鉄板'],
+      ['弁当', 'フライヤー'],
+      ['弁当', '鉄板']
+    ];
+    const DEFAULT_BAN_PAIRS = [['imai', 'kobayashi']];
+
+    const INITIAL_SHIFTS = {
+      '2026-08-24': { inami:'WORK', sueki:'OFF',  aoki:'WORK', kazama:'WORK',            kanai:'WORK', imai:'PAID', tokoro:'WORK',    kobayashi:'WORK', aoyagi:'WORK_AM', nagaki:'PAID', hoi:'WORK', matsuoka:'OFF' },
+      '2026-08-25': { inami:'OFF',  sueki:'WORK', aoki:'WORK', kazama:'CONTINUOUS_OFF',  kanai:'OFF',  imai:'WORK', tokoro:'WORK',    kobayashi:'OFF',  aoyagi:'WORK_AM', nagaki:'WORK', hoi:'WORK', matsuoka:'WORK' },
+      '2026-08-26': { inami:'WORK', sueki:'WORK', aoki:'WORK', kazama:'OFF',             kanai:'WORK', imai:'OFF',  tokoro:'WORK',    kobayashi:'WORK', aoyagi:'OFF',     nagaki:'WORK', hoi:'OFF',  matsuoka:'OFF' },
+      '2026-08-27': { inami:'PAID', sueki:'WORK', aoki:'OFF',  kazama:'WORK',            kanai:'WORK', imai:'WORK', tokoro:'OFF',     kobayashi:'WORK', aoyagi:'WORK_AM', nagaki:'OFF',  hoi:'WORK', matsuoka:'WORK' },
+      '2026-08-28': { inami:'WORK', sueki:'OFF',  aoki:'WORK', kazama:'WORK',            kanai:'OFF',  imai:'PAID', tokoro:'WORK',    kobayashi:'OFF',  aoyagi:'WORK_AM', nagaki:'WORK', hoi:'WORK', matsuoka:'WORK' },
+      '2026-08-29': { inami:'OFF',  sueki:'WORK', aoki:'WORK', kazama:'WORK',            kanai:'WORK', imai:'WORK', tokoro:'WORK',    kobayashi:'WORK', aoyagi:'WORK_AM', nagaki:'WORK', hoi:'OFF',  matsuoka:'OFF' },
+      '2026-08-30': { inami:'WORK', sueki:'WORK', aoki:'OFF',  kazama:'OFF',             kanai:'WORK', imai:'OFF',  tokoro:'WORK_AM', kobayashi:'PAID', aoyagi:'WORK_AM', nagaki:'OFF',  hoi:'WORK', matsuoka:'PAID' }
+    };
+
+    // ===================== ユーティリティ =====================
+    const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({
+      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+    })[c]);
+
+    const parseDate = (str) => {
+      const parts = String(str || '').split('-').map(Number);
+      const d = new Date(parts[0] || 2026, (parts[1] || 1) - 1, parts[2] || 1);
+      return isNaN(d.getTime()) ? new Date() : d;
+    };
+    // toISOString は時差で1日ずれるため、必ずローカル基準で文字列化する
+    const fmtDate = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    const addDays = (str, n) => { const d = parseDate(str); d.setDate(d.getDate() + n); return fmtDate(d); };
+
+    const shuffle = (arr) => {
+      const a = arr.slice();
+      for (let i = a.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        const t = a[i]; a[i] = a[j]; a[j] = t;
+      }
+      return a;
+    };
+
+    let toastTimer = null;
+    const showToast = (msg) => {
+      const el = document.getElementById('toast');
+      el.textContent = msg;
+      el.classList.add('show');
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => el.classList.remove('show'), 2400);
+    };
+
+    // ===================== 保存・読込 =====================
+    const K = {
+      staff: 'dlc9_staff', pos: 'dlc9_positions', date: 'dlc9_date',
+      shifts: 'dlc9_shifts', assign: 'dlc9_assign', rules: 'dlc9_rules',
+      shiftTypes: 'dlc9_shifttypes'
+    };
+
+    const readJSON = (key) => {
+      try {
+        const raw = localStorage.getItem(key);
+        if (raw === null) return null;
+        const v = JSON.parse(raw);
+        return (v === null || v === undefined) ? null : v;
+      } catch (e) {
+        console.warn('保存データの読込に失敗:', key, e);
+        return null;
+      }
+    };
+
+    const normPosition = (p) => ({
+      name: String((p && p.name) || '').trim() || '無名',
+      am: !(p && p.am === false),
+      pm: !(p && p.pm === false),
+      cap: Math.min(9, Math.max(1, parseInt(p && p.cap, 10) || 1)),
+      required: !!(p && p.required),
+      allowSame: !!(p && p.allowSame),
+      weeklyOnce: !!(p && p.weeklyOnce)
+    });
+
+    const normShiftType = (t) => {
+      const am = !!(t && t.am), pm = !!(t && t.pm);
+      const bg = (t && COLOR_CHOICES.some(c => c.value === t.bg)) ? t.bg : (am || pm ? 'bg-white' : 'bg-slate-300');
+      return {
+        key: String((t && t.key) || ('ST_' + Math.random().toString(36).slice(2, 9))),
+        label: String((t && t.label) || '').trim() || '無名',
+        am: am, pm: pm, bg: bg
+      };
+    };
+
+    const normStaff = (s) => {
+      const name = String((s && s.name) != null ? s.name : '無名');
+      // 曜日ごとの基本パターン（旧データの defaultOff は公休として取り込む）
+      const weekly = {};
+      if (s && s.weekly && typeof s.weekly === 'object') {
+        WEEKDAYS.forEach(d => {
+          const v = s.weekly[d];
+          if (typeof v === 'string' && v) weekly[d] = v;
+        });
+      } else if (s && Array.isArray(s.defaultOff)) {
+        s.defaultOff.forEach(d => { if (WEEKDAYS.indexOf(d) >= 0) weekly[d] = 'OFF'; });
+      }
+      return {
+        id: String((s && s.id) || ('staff_' + Math.random().toString(36).slice(2, 9))),
+        name: name,
+        fixed: (s && typeof s.fixed === 'string') ? s.fixed : '',
+        allowed: (s && Array.isArray(s.allowed)) ? s.allowed.map(String) : [],
+        solo: !!(s && s.solo),
+        // 週に1回ずつ各ポジションへ入れる対象か（旧データには無いので名前から推定）
+        rotate: (s && typeof s.rotate === 'boolean') ? s.rotate : (NO_ROTATE_NAMES.indexOf(name) < 0),
+        weekly: weekly
+      };
+    };
+
+    // 旧バージョン(v8)のデータを引き継ぐ
+    const migrateOld = () => {
+      const oldStaff = readJSON('dlc_pc_staff');
+      const oldShifts = readJSON('dlc_pc_shifts');
+      const oldAssign = readJSON('dlc_pc_pos');
+      const oldDate = localStorage.getItem('dlc_pc_date');
+      if (!oldStaff && !oldShifts && !oldAssign) return null;
+
+      let staff = null;
+      if (Array.isArray(oldStaff)) {
+        staff = oldStaff.map(o => {
+          const preset = DEFAULT_STAFF.filter(d => d.name === (o && o.name) || d.id === (o && o.id))[0];
+          if (preset) {
+            return normStaff({ ...preset, weekly: null, defaultOff: (o && o.defaultOff) || [] });
+          }
+          const allowed = (o && o.canConve) ? GENERAL.slice() : GENERAL.filter(p => p !== 'コンベ');
+          return normStaff({ id: o && o.id, name: o && o.name, allowed: allowed, defaultOff: o && o.defaultOff });
+        });
+      }
+      return {
+        staff: staff,
+        shifts: (oldShifts && typeof oldShifts === 'object') ? oldShifts : null,
+        assign: (oldAssign && typeof oldAssign === 'object') ? oldAssign : null,
+        date: /^\d{4}-\d{2}-\d{2}$/.test(oldDate || '') ? oldDate : null
+      };
+    };
+
+    const storedStaff = readJSON(K.staff);
+    const storedAssign = readJSON(K.assign);
+    const storedShifts = readJSON(K.shifts);
+    const storedRules = readJSON(K.rules);
+    const storedPos = readJSON(K.pos);
+    const storedShiftTypes = readJSON(K.shiftTypes);
+    const storedDate = localStorage.getItem(K.date);
+
+    const mig = (!storedStaff && !storedAssign && !storedShifts) ? migrateOld() : null;
+    const firstRun = !storedAssign && !(mig && mig.assign);
+
+    const state = {
+      positions: (Array.isArray(storedPos) && storedPos.length ? storedPos : DEFAULT_POSITIONS).map(normPosition),
+      shiftTypes: (Array.isArray(storedShiftTypes) && storedShiftTypes.length ? storedShiftTypes : DEFAULT_SHIFT_TYPES).map(normShiftType),
+      staffMembers: (Array.isArray(storedStaff) && storedStaff.length ? storedStaff
+                    : (mig && mig.staff) ? mig.staff : DEFAULT_STAFF).map(normStaff),
+      startDate: /^\d{4}-\d{2}-\d{2}$/.test(storedDate || '') ? storedDate
+                 : ((mig && mig.date) || '2026-08-24'),
+      shiftsData: (storedShifts && typeof storedShifts === 'object') ? storedShifts
+                  : ((mig && mig.shifts) || JSON.parse(JSON.stringify(INITIAL_SHIFTS))),
+      assignData: (storedAssign && typeof storedAssign === 'object') ? storedAssign
+                  : ((mig && mig.assign) || {}),
+      banPatterns: (storedRules && Array.isArray(storedRules.banPatterns)) ? storedRules.banPatterns
+                   : DEFAULT_BAN_PATTERNS.map(p => p.slice()),
+      banPairs: (storedRules && Array.isArray(storedRules.banPairs)) ? storedRules.banPairs
+                : DEFAULT_BAN_PAIRS.map(p => p.slice()),
+      isCapturingMode: false,
+      editingStaffs: [],
+      editingPositions: [],
+      editingShiftTypes: [],
+      editingBanPatterns: [],
+      editingBanPairs: []
+    };
+
+    // 「末木」→「瓜生」の改名を保存済みデータにも一度だけ反映する。
+    // あわせて、週の重複管理をスタッフ側の「週1回ずつ」に一本化する。
+    try {
+      if (!localStorage.getItem('dlc9_fix_uryu')) {
+        state.staffMembers.forEach(s => { if (s.name === '末木') s.name = '瓜生'; });
+        state.positions.forEach(p => { p.weeklyOnce = false; });
+        localStorage.setItem('dlc9_fix_uryu', '1');
+      }
+    } catch (e) { console.warn(e); }
+
+    const saveState = () => {
+      try {
+        localStorage.setItem(K.staff, JSON.stringify(state.staffMembers));
+        localStorage.setItem(K.pos, JSON.stringify(state.positions));
+        localStorage.setItem(K.shiftTypes, JSON.stringify(state.shiftTypes));
+        localStorage.setItem(K.date, state.startDate);
+        localStorage.setItem(K.shifts, JSON.stringify(state.shiftsData));
+        localStorage.setItem(K.assign, JSON.stringify(state.assignData));
+        localStorage.setItem(K.rules, JSON.stringify({ banPatterns: state.banPatterns, banPairs: state.banPairs }));
+      } catch (e) {
+        console.error(e);
+        showToast('保存できませんでした。ブラウザの保存領域を確認してください');
+      }
+    };
+
+    // ===================== 参照ヘルパー =====================
+    const posByName = (name) => state.positions.filter(p => p.name === name)[0] || null;
+    const staffById = (id) => state.staffMembers.filter(s => s.id === id)[0] || null;
+    const slotPositions = (isAM) => state.positions.filter(p => (isAM ? p.am : p.pm));
+
+    const getDaysArr = (startStr) => {
+      const start = parseDate(startStr);
+      const days = [];
+      for (let i = 0; i < 7; i++) {
+        const d = new Date(start.getFullYear(), start.getMonth(), start.getDate() + i);
+        days.push({
+          dateStr: fmtDate(d), dateNum: d.getDate(),
+          dayOfWeek: DOW_BY_INDEX[d.getDay()], month: d.getMonth() + 1
+        });
+      }
+      return days;
+    };
+
+    const getShiftType = (staffId, dateStr, dayOfWeek) => {
+      const rec = state.shiftsData[dateStr];
+      if (rec && rec[staffId] && findShiftType(rec[staffId])) return rec[staffId];
+      const staff = staffById(staffId);
+      if (!staff) return defaultWorkKey();
+      const base = staff.weekly && staff.weekly[dayOfWeek];
+      if (base && findShiftType(base)) return base;
+      if (base === 'OFF') return defaultOffKey();
+      return defaultWorkKey();
+    };
+
+    const getAssign = (dateStr, staffId) => {
+      const rec = state.assignData[dateStr];
+      const a = rec && rec[staffId];
+      return {
+        am: (a && typeof a.am === 'string') ? a.am : NONE,
+        pm: (a && typeof a.pm === 'string') ? a.pm : NONE
+      };
+    };
+
+    // ===================== 元に戻す =====================
+    const undoStack = [];
+    const updateUndoBtn = () => {
+      const b = document.getElementById('btn-undo');
+      if (b) b.disabled = undoStack.length === 0;
+    };
+    const pushUndo = () => {
+      undoStack.push(JSON.stringify({ shifts: state.shiftsData, assign: state.assignData }));
+      if (undoStack.length > 30) undoStack.shift();
+      updateUndoBtn();
+    };
+    const doUndo = () => {
+      const snap = undoStack.pop();
+      if (!snap) return;
+      const o = JSON.parse(snap);
+      state.shiftsData = o.shifts;
+      state.assignData = o.assign;
+      saveState();
+      renderTable();
+      updateUndoBtn();
+      showToast('元に戻しました');
+    };
+
+    // ===================== ソルバー =====================
+    // 候補リスト。必ず末尾に「—」を入れるので、詰んでも空欄で解が成立する。
+    const buildCandidates = (staffId, isAM, amAssign) => {
+      const staff = staffById(staffId);
+      if (!staff) return [NONE];
+      let list;
+      if (staff.fixed) {
+        const p = posByName(staff.fixed);
+        list = (p && (isAM ? p.am : p.pm)) ? [p.name] : [];
+      } else {
+        list = slotPositions(isAM)
+          .filter(p => staff.allowed.length === 0 || staff.allowed.indexOf(p.name) >= 0)
+          .map(p => p.name);
+      }
+      if (!isAM && amAssign) {
+        const amPos = amAssign[staffId];
+        if (amPos && amPos !== NONE) {
+          list = list.filter(p => !state.banPatterns.some(bp => bp[0] === amPos && bp[1] === p));
+          const def = posByName(amPos);
+          if (!def || !def.allowSame) list = list.filter(p => p !== amPos);
+        }
+      }
+      const out = shuffle(list);
+      out.push(NONE);
+      return out;
+    };
+
+    // 部分的な割当でも「破れたら二度と直らない」条件だけをここで判定する。
+    // （最少人数のような条件をここに書くと、順番次第で全滅するのが v8 のバグだった）
+    const checkPartial = (assign) => {
+      const counts = {};
+      for (const id in assign) {
+        const p = assign[id];
+        if (p && p !== NONE) counts[p] = (counts[p] || 0) + 1;
+      }
+      for (let i = 0; i < state.positions.length; i++) {
+        const p = state.positions[i];
+        if ((counts[p.name] || 0) > p.cap) return false;
+      }
+      for (let i = 0; i < state.staffMembers.length; i++) {
+        const s = state.staffMembers[i];
+        if (!s.solo) continue;
+        const p = assign[s.id];
+        if (p && p !== NONE && counts[p] > 1) return false;
+      }
+      for (let i = 0; i < state.banPairs.length; i++) {
+        const a = state.banPairs[i][0], b = state.banPairs[i][1];
+        if (assign[a] && assign[b] && assign[a] === assign[b] && assign[a] !== NONE) return false;
+      }
+      return true;
+    };
+
+    const calcScore = (assign, isAM, prevDayAssign, weeklyCounts) => {
+      let score = 0;
+      const counts = {};
+      for (const id in assign) {
+        const p = assign[id];
+        if (p && p !== NONE) counts[p] = (counts[p] || 0) + 1;
+        else score += 200000; // 手すきは重複より避けたい
+      }
+      const avail = slotPositions(isAM);
+      for (let i = 0; i < avail.length; i++) {
+        const p = avail[i];
+        if (p.required && !(counts[p.name] > 0)) score += 1000000;
+      }
+      if (prevDayAssign) {
+        for (const id in assign) {
+          const p = assign[id];
+          if (!p || p === NONE) continue;
+          const def = posByName(p);
+          if (def && def.allowSame) continue;
+          const prev = prevDayAssign[id];
+          if (prev && (prev.am === p || prev.pm === p)) score += 40000;
+        }
+      }
+      // 週の中で同じポジションに2回以上入るのを避ける。
+      // 対象は「週1回ずつ」のスタッフ、または項目側で「週1回まで」を指定した項目。
+      // 回数が増えるほど罰点が跳ね上がるので、まず全ポジションに1回ずつ行き渡る。
+      for (const id in assign) {
+        const p = assign[id];
+        if (!p || p === NONE) continue;
+        const staff = staffById(id);
+        const def = posByName(p);
+        if (!(staff && staff.rotate) && !(def && def.weeklyOnce)) continue;
+        const c = (weeklyCounts[id] && weeklyCounts[id][p]) || 0;
+        // 回数が増えるほど重い罰点。ただし「手すき(200000)」は超えないようにして、
+        // 空き枠があるのに誰かを遊ばせる結果にならないようにする。
+        if (c >= 1) score += Math.min(190000, 60000 + 40000 * (c - 1));
+      }
+      return score;
+    };
+
+    const NODE_CAP = 120000;
+    const TIME_CAP_MS = 400;
+
+    const solveSlot = (staffs, isAM, amAssign, prevDayAssign, weeklyCounts) => {
+      const candMap = {};
+      staffs.forEach(id => { candMap[id] = buildCandidates(id, isAM, amAssign); });
+      const order = staffs.slice().sort((a, b) => candMap[a].length - candMap[b].length);
+
+      let best = null, bestScore = Infinity, nodes = 0;
+      const deadline = Date.now() + TIME_CAP_MS;
+      const cur = {};
+
+      const dfs = (i) => {
+        if (nodes++ > NODE_CAP || Date.now() > deadline) return true; // 打ち切り
+        if (!checkPartial(cur)) return false;
+        if (i === order.length) {
+          const sc = calcScore(cur, isAM, prevDayAssign, weeklyCounts);
+          if (sc < bestScore) { bestScore = sc; best = Object.assign({}, cur); }
+          return bestScore === 0;
+        }
+        const id = order[i];
+        const cands = candMap[id];
+        for (let k = 0; k < cands.length; k++) {
+          cur[id] = cands[k];
+          const stop = dfs(i + 1);
+          if (stop) { delete cur[id]; return true; }
+        }
+        delete cur[id];
+        return false;
+      };
+
+      dfs(0);
+      if (!best) { best = {}; order.forEach(id => { best[id] = NONE; }); }
+      return best;
+    };
+
+    const runAutoGenerate = () => {
+      const days = getDaysArr(state.startDate);
+      // 週跨ぎの連続も見るため、前週最終日から引き継ぐ
+      let prevDayAssign = state.assignData[addDays(state.startDate, -1)] || null;
+      const weeklyCounts = {};
+      state.staffMembers.forEach(s => { weeklyCounts[s.id] = {}; });
+
+      days.forEach(day => {
+        const shifts = {};
+        state.staffMembers.forEach(s => { shifts[s.id] = getShiftType(s.id, day.dateStr, day.dayOfWeek); });
+
+        const amStaffs = state.staffMembers.map(s => s.id).filter(id => isWorkAM(shifts[id]));
+        const pmStaffs = state.staffMembers.map(s => s.id).filter(id => isWorkPM(shifts[id]));
+
+        const bestAm = solveSlot(amStaffs, true, null, prevDayAssign, weeklyCounts);
+
+        const tempCounts = JSON.parse(JSON.stringify(weeklyCounts));
+        for (const id in bestAm) {
+          const p = bestAm[id];
+          if (p && p !== NONE) {
+            if (!tempCounts[id]) tempCounts[id] = {};
+            tempCounts[id][p] = (tempCounts[id][p] || 0) + 1;
+          }
+        }
+
+        const bestPm = solveSlot(pmStaffs, false, bestAm, prevDayAssign, tempCounts);
+
+        [bestAm, bestPm].forEach(res => {
+          for (const id in res) {
+            const p = res[id];
+            if (p && p !== NONE) {
+              if (!weeklyCounts[id]) weeklyCounts[id] = {};
+              weeklyCounts[id][p] = (weeklyCounts[id][p] || 0) + 1;
+            }
+          }
+        });
+
+        if (!state.assignData[day.dateStr]) state.assignData[day.dateStr] = {};
+        state.staffMembers.forEach(s => {
+          state.assignData[day.dateStr][s.id] = {
+            am: bestAm[s.id] || NONE,
+            pm: bestPm[s.id] || NONE
+          };
+        });
+        prevDayAssign = state.assignData[day.dateStr];
+      });
+
+      saveState();
+      renderTable();
+    };
+
+    const runAutoGenerateUI = () => {
+      const btn = document.getElementById('btn-auto-gen');
+      const label = btn.innerHTML;
+      btn.disabled = true;
+      btn.innerHTML = '⚡ 計算中…';
+      setTimeout(() => {
+        try {
+          pushUndo();
+          runAutoGenerate();
+          showToast('自動割当が完了しました');
+        } catch (e) {
+          console.error(e);
+          showToast('自動割当でエラーが発生しました');
+        }
+        btn.disabled = false;
+        btn.innerHTML = label;
+      }, 30);
+    };
+
+    // ===================== チェック（警告） =====================
+    const validateWeek = () => {
+      const days = getDaysArr(state.startDate);
+      const issues = [];
+      const known = state.positions.map(p => p.name);
+
+      days.forEach(day => {
+        const label = `${day.month}/${day.dateNum}(${day.dayOfWeek})`;
+        [true, false].forEach(isAM => {
+          const slotName = isAM ? '午前' : '午後';
+          const counts = {};
+          const soloInfo = [];
+          const assignMap = {};
+
+          state.staffMembers.forEach(s => {
+            const st = getShiftType(s.id, day.dateStr, day.dayOfWeek);
+            if (!(isAM ? isWorkAM(st) : isWorkPM(st))) return;
+            const p = getAssign(day.dateStr, s.id)[isAM ? 'am' : 'pm'];
+            assignMap[s.id] = p;
+            if (!p || p === NONE) return;
+            counts[p] = (counts[p] || 0) + 1;
+            if (s.solo) soloInfo.push([s, p]);
+            if (known.indexOf(p) < 0) {
+              issues.push(`${label}${slotName}: ${s.name} の「${p}」は項目一覧にありません`);
+            }
+          });
+
+          state.positions.forEach(p => {
+            const c = counts[p.name] || 0;
+            const available = isAM ? p.am : p.pm;
+            if (!available && c > 0) issues.push(`${label}${slotName}: 「${p.name}」は${slotName}に使わない項目です`);
+            if (available && p.required && c === 0) issues.push(`${label}${slotName}: 必須の「${p.name}」が空きです`);
+            if (c > p.cap) issues.push(`${label}${slotName}: 「${p.name}」が定員${p.cap}名を超えています（${c}名）`);
+          });
+
+          soloInfo.forEach(pair => {
+            if ((counts[pair[1]] || 0) > 1) issues.push(`${label}${slotName}: ${pair[0].name}（単独）と同じ「${pair[1]}」に他の人が入っています`);
+          });
+
+          state.banPairs.forEach(bp => {
+            const a = assignMap[bp[0]], b = assignMap[bp[1]];
+            if (a && b && a === b && a !== NONE) {
+              const sa = staffById(bp[0]), sb = staffById(bp[1]);
+              issues.push(`${label}${slotName}: ${sa ? sa.name : bp[0]} と ${sb ? sb.name : bp[1]} が同じ「${a}」です`);
+            }
+          });
+        });
+
+        state.staffMembers.forEach(s => {
+          const st = getShiftType(s.id, day.dateStr, day.dayOfWeek);
+          if (!(isWorkAM(st) && isWorkPM(st))) return;
+          const a = getAssign(day.dateStr, s.id);
+          if (a.am === NONE || a.pm === NONE) return;
+          if (state.banPatterns.some(bp => bp[0] === a.am && bp[1] === a.pm)) {
+            issues.push(`${label}: ${s.name} の「午前${a.am} → 午後${a.pm}」は禁止パターンです`);
+          }
+          const def = posByName(a.am);
+          if (a.am === a.pm && def && !def.allowSame) {
+            issues.push(`${label}: ${s.name} が「${a.am}」を午前午後で連続しています`);
+          }
+        });
+      });
+      return issues;
+    };
+
+    const renderWarnings = () => {
+      const el = document.getElementById('warn-panel');
+      const issues = validateWeek();
+      if (issues.length === 0) {
+        el.innerHTML = `<div class="border border-emerald-300 bg-emerald-50 text-emerald-800 rounded p-2 font-bold text-[11px]">✅ ルール上の問題は見つかりませんでした</div>`;
+        return;
+      }
+      const shown = issues.slice(0, 30);
+      el.innerHTML = `
+        <div class="border border-amber-400 bg-amber-50 rounded p-2">
+          <div class="font-bold text-amber-800 text-[12px] mb-1">⚠ 確認が必要な点（${issues.length}件）</div>
+          <ul class="list-disc pl-5 text-[11px] text-amber-900 space-y-0.5">
+            ${shown.map(t => `<li>${esc(t)}</li>`).join('')}
+          </ul>
+          ${issues.length > shown.length ? `<div class="text-[11px] text-amber-700 mt-1">…ほか ${issues.length - shown.length} 件</div>` : ''}
+        </div>`;
+    };
+
+    // ===================== 表の描画 =====================
+    const positionOptionsHtml = (isAM, currentValue) => {
+      const list = slotPositions(isAM).map(p => p.name);
+      let html = `<option value="${NONE}"${currentValue === NONE ? ' selected' : ''}>${NONE}</option>`;
+      list.forEach(name => {
+        html += `<option value="${esc(name)}"${currentValue === name ? ' selected' : ''}>${esc(name)}</option>`;
+      });
+      if (currentValue && currentValue !== NONE && list.indexOf(currentValue) < 0) {
+        html += `<option value="${esc(currentValue)}" selected>${esc(currentValue)}（一覧外）</option>`;
+      }
+      html += `<option value="${CUSTOM}">✏️ 直接入力…</option>`;
+      return html;
+    };
+
+    const cellInnerHtml = (staff, day) => {
+      const shiftType = getShiftType(staff.id, day.dateStr, day.dayOfWeek);
+      const a = getAssign(day.dateStr, staff.id);
+      const def = shiftDef(shiftType);
+      const amStr = (def.am && a.am && a.am !== NONE) ? a.am : '';
+      const pmStr = (def.pm && a.pm && a.pm !== NONE) ? a.pm : '';
+
+      if (state.isCapturingMode) {
+        if (isOffShift(shiftType)) {
+          return `<div class="flex h-full min-h-[50px] items-center justify-center capture-mode-text text-slate-900 font-black whitespace-nowrap">${esc(def.label)}</div>`;
+        }
+        // 「フライヤー」のような長い名前は自動で一段小さくして枠内に収める
+        const sizeCls = (s) => (s.length >= 5 ? 'capture-mode-text-xs' : (s.length === 4 ? 'capture-mode-text-sm' : 'capture-mode-text'));
+        return `
+          <div class="grid grid-cols-2 h-full min-h-[50px]">
+            <div class="flex items-center justify-center border-r border-slate-800 text-orange-600 font-bold ${sizeCls(amStr)} whitespace-nowrap overflow-hidden">${esc(amStr)}</div>
+            <div class="flex items-center justify-center text-blue-600 font-bold ${sizeCls(pmStr)} whitespace-nowrap overflow-hidden">${esc(pmStr)}</div>
+          </div>`;
+      }
+
+      let html = `<div class="flex flex-col items-center justify-center">
+        <div class="mb-1">
+          <select data-act="shift" data-staff="${esc(staff.id)}" data-date="${day.dateStr}"
+            class="text-[10px] font-normal border border-slate-400 rounded text-slate-700 cursor-pointer focus:outline-none bg-white px-1 shadow-sm">
+            ${shiftTypeList().map(s => `<option value="${esc(s.key)}"${s.key === shiftType ? ' selected' : ''}>${esc(s.label)}</option>`).join('')}
+          </select>
+        </div>`;
+
+      if (isOffShift(shiftType)) {
+        html += `<span class="font-black block py-1 text-slate-900">${esc(def.label)}</span>`;
+      } else {
+        html += `<div class="flex items-center justify-center gap-0.5">`;
+        if (def.am) {
+          html += `<select data-act="pos" data-slot="am" data-staff="${esc(staff.id)}" data-date="${day.dateStr}"
+            class="text-[11px] font-bold rounded px-0.5 py-0.5 w-[4.4rem] text-center outline-none hide-arrow shadow-sm bg-orange-50 border border-orange-400 text-orange-600 cursor-pointer hover:bg-orange-100">
+            ${positionOptionsHtml(true, a.am)}</select>`;
+        } else {
+          html += `<span class="w-[4.4rem] text-transparent">—</span>`;
+        }
+        html += `<span class="text-slate-800 font-bold px-0.5">/</span>`;
+        if (def.pm) {
+          html += `<select data-act="pos" data-slot="pm" data-staff="${esc(staff.id)}" data-date="${day.dateStr}"
+            class="text-[11px] font-bold rounded px-0.5 py-0.5 w-[4.4rem] text-center outline-none hide-arrow shadow-sm bg-blue-50 border border-blue-400 text-blue-600 cursor-pointer hover:bg-blue-100">
+            ${positionOptionsHtml(false, a.pm)}</select>`;
+        } else {
+          html += `<span class="w-[4.4rem] text-transparent">—</span>`;
+        }
+        html += `</div>`;
+      }
+      html += `</div>`;
+      return html;
+    };
+
+    const cellId = (staffId, dateStr) => `cell-${staffId}-${dateStr}`;
+
+    const renderCell = (staffId, dateStr) => {
+      const td = document.getElementById(cellId(staffId, dateStr));
+      if (!td) return;
+      const staff = staffById(staffId);
+      const days = getDaysArr(state.startDate);
+      const day = days.filter(d => d.dateStr === dateStr)[0];
+      if (!staff || !day) return;
+      const shiftType = getShiftType(staff.id, dateStr, day.dayOfWeek);
+      td.className = `border-r border-slate-800 align-middle cell-hover ${shiftDef(shiftType).bg} ${state.isCapturingMode ? 'p-0 h-px' : 'p-1'}`;
+      td.innerHTML = cellInnerHtml(staff, day);
+      renderWarnings();
+    };
+
+    const renderTable = () => {
+      const days = getDaysArr(state.startDate);
+      const headEl = document.getElementById('table-head');
+      const bodyEl = document.getElementById('table-body');
+
+      const thBase = state.isCapturingMode ? 'capture-mode-th' : 'p-2';
+      const thDate = state.isCapturingMode ? 'capture-mode-date' : 'text-base';
+      // 画像保存・印刷のレイアウトは元のまま。月跨ぎの補足は画面表示のときだけ出す。
+      const cap = state.isCapturingMode;
+      const spanMonth = days[0].month !== days[6].month;
+      const monthLabel = (spanMonth && !cap) ? `${days[0].month}/${days[6].month}月` : `${days[0].month}月`;
+      const monthColW = cap ? '' : 'w-14';
+      const dayColW = cap ? '' : 'w-[12%]';
+
+      // 画像・印刷は列幅を%で固定する（担当者13% + 月3% + 各曜日12% = 100%）
+      const colsEl = document.getElementById('table-cols');
+      if (colsEl) {
+        colsEl.innerHTML = cap
+          ? '<col style="width:13%"><col style="width:3%">' + days.map(() => '<col style="width:12%">').join('')
+          : '';
+      }
+
+      headEl.innerHTML = `
+        <tr class="bg-slate-300">
+          <th class="border-r border-b border-slate-800 ${thBase} ${cap ? '' : 'w-[8rem]'} bg-white text-slate-900">
+            <span class="text-orange-600">AM</span><span class="text-slate-800 mx-0.5">/</span><span class="text-blue-600">PM</span>
+          </th>
+          <th class="border-r border-b border-slate-800 ${cap ? 'capture-mode-th-narrow' : thBase} ${monthColW} bg-white text-slate-900 font-black">${monthLabel}</th>
+          ${days.map(d => `<th class="border-r border-b border-slate-800 ${thBase} text-slate-900 bg-slate-300 font-black ${thDate} ${dayColW}">${(!cap && d.dateNum === 1) ? d.month + '/1' : d.dateNum}</th>`).join('')}
+        </tr>
+        <tr class="bg-slate-300">
+          <th class="border-r border-b-2 border-slate-800 ${state.isCapturingMode ? 'p-2' : 'p-1.5'} bg-white" colspan="2">
+            ${state.isCapturingMode ? '<div class="flex items-center justify-center text-slate-700 text-sm">担当者</div>' : ''}
+          </th>
+          ${days.map(d => {
+            const color = d.dayOfWeek === '土' ? 'text-blue-600 font-bold'
+              : d.dayOfWeek === '日' ? 'text-orange-600 font-bold' : 'text-slate-900';
+            if (state.isCapturingMode) {
+              return `
+              <th class="border-r border-b-2 border-slate-800 p-0 bg-slate-300 align-middle h-px">
+                <div class="flex flex-col h-full min-h-[46px]">
+                  <div class="flex items-center justify-center p-1 border-b border-slate-800 ${color} text-[15px] leading-tight">${d.dayOfWeek}</div>
+                  <div class="grid grid-cols-2 flex-1">
+                    <div class="flex items-center justify-center border-r border-slate-800 text-[13px] text-orange-600 leading-tight w-full">午前</div>
+                    <div class="flex items-center justify-center text-[13px] text-blue-600 leading-tight w-full">午後</div>
+                  </div>
+                </div>
+              </th>`;
+            }
+            return `<th class="border-r border-b-2 border-slate-800 p-1 text-sm bg-slate-300 ${color} ${dayColW}">${d.dayOfWeek}</th>`;
+          }).join('')}
+        </tr>`;
+
+      let bodyHtml = '';
+      state.staffMembers.forEach(staff => {
+        bodyHtml += `<tr class="row-hover border-b border-slate-800">
+          <td class="border-r border-slate-800 ${state.isCapturingMode ? 'capture-mode-name' : 'p-2'} text-center bg-slate-200 text-slate-900 font-bold whitespace-nowrap" colspan="2">${esc(staff.name)}</td>`;
+        days.forEach(day => {
+          const shiftType = getShiftType(staff.id, day.dateStr, day.dayOfWeek);
+          const cls = `border-r border-slate-800 align-middle ${state.isCapturingMode ? '' : 'cell-hover'} ${shiftDef(shiftType).bg} ${state.isCapturingMode ? 'p-0 h-px' : 'p-1'}`;
+          bodyHtml += `<td id="${cellId(staff.id, day.dateStr)}" class="${cls}">${cellInnerHtml(staff, day)}</td>`;
+        });
+        bodyHtml += `</tr>`;
+      });
+      bodyEl.innerHTML = bodyHtml;
+      renderWarnings();
+    };
+
+    // セル操作は1か所で受ける（毎回全描画しないのでフォーカスが飛ばない）
+    document.getElementById('table-body').addEventListener('change', (e) => {
+      const sel = e.target;
+      if (!sel || sel.tagName !== 'SELECT') return;
+      const act = sel.getAttribute('data-act');
+      const staffId = sel.getAttribute('data-staff');
+      const dateStr = sel.getAttribute('data-date');
+      if (!act || !staffId || !dateStr) return;
+
+      pushUndo();
+      if (act === 'shift') {
+        if (!state.shiftsData[dateStr]) state.shiftsData[dateStr] = {};
+        state.shiftsData[dateStr][staffId] = sel.value;
+      } else {
+        const slot = sel.getAttribute('data-slot');
+        let val = sel.value;
+        if (val === CUSTOM) {
+          const cur = getAssign(dateStr, staffId)[slot];
+          const input = window.prompt('この枠に入れる文字を入力してください（空欄にすると「—」になります）', cur === NONE ? '' : cur);
+          if (input === null) { renderCell(staffId, dateStr); undoStack.pop(); updateUndoBtn(); return; }
+          val = input.trim() || NONE;
+        }
+        if (!state.assignData[dateStr]) state.assignData[dateStr] = {};
+        if (!state.assignData[dateStr][staffId]) state.assignData[dateStr][staffId] = { am: NONE, pm: NONE };
+        state.assignData[dateStr][staffId][slot] = val;
+      }
+      saveState();
+      renderCell(staffId, dateStr);
+    });
+
+    // ===================== 画像保存・印刷 =====================
+    const withCaptureMode = async (fn, fixedWidth) => {
+      state.isCapturingMode = true;
+      document.body.classList.add('capture-mode');
+      if (fixedWidth) document.body.classList.add('capture-fixed');
+      renderTable();
+      await new Promise(r => setTimeout(r, 250));
+      try { await fn(); }
+      finally {
+        state.isCapturingMode = false;
+        document.body.classList.remove('capture-mode');
+        document.body.classList.remove('capture-fixed');
+        renderTable();
+      }
+    };
+
+    // プレビュー用のiframe内ではスクリプトからのダウンロードが禁止されるため、
+    // その場合は画像を画面に出して保存してもらう
+    const inFrame = (() => { try { return window.self !== window.top; } catch (e) { return true; } })();
+
+    const dataUrlToBlob = (dataUrl) => {
+      const parts = dataUrl.split(',');
+      const mime = (parts[0].match(/:(.*?);/) || [])[1] || 'image/png';
+      const bin = atob(parts[1]);
+      const buf = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) buf[i] = bin.charCodeAt(i);
+      return new Blob([buf], { type: mime });
+    };
+
+    const showImageOverlay = (dataUrl, filename) => {
+      document.getElementById('img-preview').src = dataUrl;
+      const link = document.getElementById('img-dl-link');
+      link.href = dataUrl;
+      link.download = filename;
+      document.getElementById('btn-img-copy').onclick = async () => {
+        try {
+          if (!navigator.clipboard || !window.ClipboardItem) throw new Error('unsupported');
+          await navigator.clipboard.write([new ClipboardItem({ 'image/png': dataUrlToBlob(dataUrl) })]);
+          showToast('画像をクリップボードにコピーしました');
+        } catch (e) {
+          console.warn(e);
+          showToast('コピーできませんでした。画像を右クリックして保存してください');
+        }
+      };
+      document.getElementById('btn-img-tab').onclick = () => {
+        try {
+          const w = window.open('', '_blank');
+          if (!w) throw new Error('blocked');
+          w.document.write(`<title>${filename}</title><img src="${dataUrl}" style="max-width:100%">`);
+          w.document.close();
+        } catch (e) {
+          showToast('別タブを開けませんでした。画像を右クリックして保存してください');
+        }
+      };
+      openModal('img-overlay');
+    };
+
+    const executeImageDownload = () => withCaptureMode(async () => {
+      if (typeof html2canvas !== 'function') {
+        showToast('画像保存の部品(html2canvas)を読み込めていません');
+        return;
+      }
+      try {
+        const element = document.getElementById('capture-area');
+        const w = element.scrollWidth;
+        const canvas = await html2canvas(element, {
+          scale: 2, backgroundColor: '#ffffff', useCORS: true, logging: false,
+          width: w, height: element.scrollHeight,
+          windowWidth: w + 64, windowHeight: element.scrollHeight + 64
+        });
+        const dataUrl = canvas.toDataURL('image/png');
+        const filename = `デリカポジション表_${state.startDate}.png`;
+
+        let saved = false;
+        if (!inFrame) {
+          try {
+            const link = document.createElement('a');
+            link.download = filename;
+            link.href = dataUrl;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            saved = true;
+          } catch (e) { console.warn(e); }
+        }
+        if (saved) showToast('画像を保存しました');
+        else showImageOverlay(dataUrl, filename);
+      } catch (e) {
+        console.error(e);
+        showToast('画像の作成に失敗しました');
+      }
+    }, true);
+
+    const executePrint = () => withCaptureMode(async () => {
+      window.print();
+      await new Promise(r => setTimeout(r, 400));
+    });
+
+    // ===================== ツールバー =====================
+    const dateInput = document.getElementById('start-date-input');
+    dateInput.value = state.startDate;
+    dateInput.addEventListener('change', (e) => {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(e.target.value)) { e.target.value = state.startDate; return; }
+      state.startDate = e.target.value;
+      saveState();
+      renderTable();
+    });
+
+    const shiftWeek = (n) => {
+      state.startDate = addDays(state.startDate, n);
+      dateInput.value = state.startDate;
+      saveState();
+      renderTable();
+    };
+    document.getElementById('btn-prev-week').addEventListener('click', () => shiftWeek(-7));
+    document.getElementById('btn-next-week').addEventListener('click', () => shiftWeek(7));
+    document.getElementById('btn-auto-gen').addEventListener('click', runAutoGenerateUI);
+    document.getElementById('btn-undo').addEventListener('click', doUndo);
+    document.getElementById('btn-save-img').addEventListener('click', executeImageDownload);
+    document.getElementById('btn-print').addEventListener('click', executePrint);
+    document.getElementById('btn-close-img').addEventListener('click', () => closeModal('img-overlay'));
+    document.getElementById('img-overlay').addEventListener('click', (e) => {
+      if (e.target.id === 'img-overlay') closeModal('img-overlay');
+    });
+
+    window.addEventListener('keydown', (e) => {
+      const mod = e.ctrlKey || e.metaKey;
+      if (!mod) return;
+      if (e.key === 'Enter') { e.preventDefault(); runAutoGenerateUI(); }
+      else if (e.key === 's' || e.key === 'S') { e.preventDefault(); executeImageDownload(); }
+      else if (e.key === 'z' || e.key === 'Z') { e.preventDefault(); doUndo(); }
+    });
+
+    document.getElementById('btn-reset').addEventListener('click', () => {
+      if (!confirm('スタッフ・項目・ルール・シフトをすべて初期状態に戻します。よろしいですか？')) return;
+      try {
+        [K.staff, K.pos, K.date, K.shifts, K.assign, K.rules,
+         'dlc_pc_staff', 'dlc_pc_date', 'dlc_pc_shifts', 'dlc_pc_pos'].forEach(k => localStorage.removeItem(k));
+      } catch (e) { console.error(e); }
+      location.reload();
+    });
+
+    document.getElementById('btn-copy-tsv').addEventListener('click', async () => {
+      const days = getDaysArr(state.startDate);
+      let tsv = '担当者\t' + days.map(d => `${d.month}/${d.dateNum}(${d.dayOfWeek})`).join('\t') + '\n';
+      state.staffMembers.forEach(staff => {
+        const cells = days.map(day => {
+          const st = getShiftType(staff.id, day.dateStr, day.dayOfWeek);
+          if (isOffShift(st)) return shiftDef(st).label;
+          const a = getAssign(day.dateStr, staff.id);
+          const amOK = isWorkAM(st) && a.am && a.am !== NONE;
+          const pmOK = isWorkPM(st) && a.pm && a.pm !== NONE;
+          let t = '';
+          if (amOK && pmOK) t = (a.am === a.pm) ? a.am : `${a.am} / ${a.pm}`;
+          else if (amOK) t = a.am;
+          else if (pmOK) t = a.pm;
+          return t || '出勤';
+        });
+        tsv += staff.name + '\t' + cells.join('\t') + '\n';
+      });
+
+      let ok = false;
+      try {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          await navigator.clipboard.writeText(tsv);
+          ok = true;
+        }
+      } catch (e) { console.warn(e); }
+      if (!ok) {
+        try {
+          const ta = document.createElement('textarea');
+          ta.value = tsv;
+          ta.style.position = 'fixed';
+          ta.style.opacity = '0';
+          document.body.appendChild(ta);
+          ta.select();
+          ok = document.execCommand('copy');
+          document.body.removeChild(ta);
+        } catch (e) { console.warn(e); }
+      }
+      showToast(ok ? 'Excel貼り付け用にコピーしました' : 'コピーできませんでした（手動で選択してください）');
+    });
+
+    // ===================== スタッフ管理モーダル =====================
+    const openModal = (id) => {
+      document.getElementById(id).classList.remove('hidden');
+      document.body.classList.add('modal-open');
+    };
+    const closeModal = (id) => {
+      document.getElementById(id).classList.add('hidden');
+      document.body.classList.remove('modal-open');
+    };
+
+    const renderStaffModal = () => {
+      const tbody = document.getElementById('staff-modal-body');
+      const posNames = state.editingPositions.length
+        ? state.editingPositions.map(p => p.name) : state.positions.map(p => p.name);
+      const types = state.shiftTypes;
+      const workKey = defaultWorkKey();
+      tbody.innerHTML = state.editingStaffs.map((s, i) => `
+        <tr class="border-b hover:bg-slate-50 align-top">
+          <td class="p-2 whitespace-nowrap">
+            <button data-sact="up" data-i="${i}" class="px-1.5 py-0.5 border rounded bg-white hover:bg-slate-200">↑</button>
+            <button data-sact="down" data-i="${i}" class="px-1.5 py-0.5 border rounded bg-white hover:bg-slate-200 ml-1">↓</button>
+          </td>
+          <td class="p-2">
+            <input type="text" value="${esc(s.name)}" data-sact="name" data-i="${i}"
+              class="border border-slate-300 p-1 rounded w-full outline-none focus:border-blue-500">
+          </td>
+          <td class="p-2">
+            <select data-sact="fixed" data-i="${i}" class="border border-slate-300 p-1 rounded w-full">
+              <option value=""${s.fixed === '' ? ' selected' : ''}>なし</option>
+              ${posNames.map(n => `<option value="${esc(n)}"${s.fixed === n ? ' selected' : ''}>${esc(n)}</option>`).join('')}
+            </select>
+          </td>
+          <td class="p-2">
+            <div class="flex gap-1 flex-wrap ${s.fixed ? 'opacity-40' : ''}">
+              ${posNames.map(n => {
+                const on = s.allowed.indexOf(n) >= 0;
+                return `<label class="flex items-center gap-0.5 text-xs px-1.5 py-1 rounded cursor-pointer border ${on ? 'bg-blue-600 text-white border-blue-700 font-bold' : 'bg-white border-slate-300 hover:bg-slate-100'}">
+                  <input type="checkbox" class="hidden" data-sact="allow" data-i="${i}" data-name="${esc(n)}"${on ? ' checked' : ''}>${esc(n)}
+                </label>`;
+              }).join('')}
+            </div>
+          </td>
+          <td class="p-2 text-center">
+            <input type="checkbox" data-sact="solo" data-i="${i}"${s.solo ? ' checked' : ''} class="w-4 h-4 cursor-pointer">
+          </td>
+          <td class="p-2 text-center">
+            <input type="checkbox" data-sact="rotate" data-i="${i}"${s.rotate ? ' checked' : ''} class="w-4 h-4 cursor-pointer">
+          </td>
+          <td class="p-2">
+            <div class="flex gap-1">
+              ${WEEKDAYS.map(d => {
+                const cur = (s.weekly && s.weekly[d]) || workKey;
+                const isOff = isOffShift(cur);
+                return `<label class="flex flex-col items-center gap-0.5">
+                  <span class="text-[11px] font-bold ${d === '土' ? 'text-blue-600' : d === '日' ? 'text-orange-600' : 'text-slate-600'}">${d}</span>
+                  <select data-sact="weekly" data-i="${i}" data-day="${d}"
+                    class="border rounded p-0.5 text-[10px] w-[4.6rem] cursor-pointer ${isOff ? 'bg-slate-700 text-white border-slate-800 font-bold' : 'bg-white border-slate-300'}">
+                    ${types.map(t => `<option value="${esc(t.key)}"${t.key === cur ? ' selected' : ''}>${esc(t.label)}</option>`).join('')}
+                  </select>
+                </label>`;
+              }).join('')}
+            </div>
+          </td>
+          <td class="p-2 text-center">
+            <button data-sact="del" data-i="${i}" class="text-red-600 hover:text-white hover:bg-red-600 font-bold px-2 py-1 rounded border border-red-400 transition">削除</button>
+          </td>
+        </tr>`).join('');
+    };
+
+    document.getElementById('staff-modal-body').addEventListener('click', (e) => {
+      const b = e.target.closest('button');
+      if (!b) return;
+      const act = b.getAttribute('data-sact');
+      const i = parseInt(b.getAttribute('data-i'), 10);
+      if (act === 'up' || act === 'down') {
+        const dir = act === 'up' ? -1 : 1;
+        if (i + dir < 0 || i + dir >= state.editingStaffs.length) return;
+        const t = state.editingStaffs[i];
+        state.editingStaffs[i] = state.editingStaffs[i + dir];
+        state.editingStaffs[i + dir] = t;
+        renderStaffModal();
+      } else if (act === 'del') {
+        if (!confirm(`「${state.editingStaffs[i].name}」を削除しますか？`)) return;
+        state.editingStaffs.splice(i, 1);
+        renderStaffModal();
+      }
+    });
+
+    document.getElementById('staff-modal-body').addEventListener('change', (e) => {
+      const el = e.target;
+      const act = el.getAttribute('data-sact');
+      if (!act) return;
+      const i = parseInt(el.getAttribute('data-i'), 10);
+      const s = state.editingStaffs[i];
+      if (!s) return;
+      if (act === 'name') { s.name = el.value; return; }
+      if (act === 'fixed') { s.fixed = el.value; renderStaffModal(); return; }
+      if (act === 'solo') { s.solo = el.checked; return; }
+      if (act === 'rotate') { s.rotate = el.checked; return; }
+      if (act === 'allow') {
+        const n = el.getAttribute('data-name');
+        s.allowed = el.checked ? s.allowed.concat([n]) : s.allowed.filter(x => x !== n);
+        renderStaffModal();
+        return;
+      }
+      if (act === 'weekly') {
+        const d = el.getAttribute('data-day');
+        if (!s.weekly) s.weekly = {};
+        s.weekly[d] = el.value;
+        renderStaffModal();
+      }
+    });
+
+    document.getElementById('btn-staff-modal').addEventListener('click', () => {
+      state.editingStaffs = JSON.parse(JSON.stringify(state.staffMembers));
+      state.editingPositions = [];
+      renderStaffModal();
+      openModal('staff-modal');
+    });
+    document.getElementById('btn-close-staff-modal').addEventListener('click', () => closeModal('staff-modal'));
+    document.getElementById('btn-cancel-staff').addEventListener('click', () => closeModal('staff-modal'));
+    document.getElementById('btn-add-staff').addEventListener('click', () => {
+      state.editingStaffs.push(normStaff({ id: 'staff_' + Date.now(), name: '新規スタッフ', allowed: [], weekly: {} }));
+      renderStaffModal();
+    });
+    document.getElementById('btn-save-staff').addEventListener('click', () => {
+      state.staffMembers = state.editingStaffs.map(normStaff);
+      // 削除されたスタッフを参照している禁止ペアを掃除
+      const ids = state.staffMembers.map(s => s.id);
+      state.banPairs = state.banPairs.filter(p => ids.indexOf(p[0]) >= 0 && ids.indexOf(p[1]) >= 0);
+      saveState();
+      closeModal('staff-modal');
+      renderTable();
+      showToast('スタッフ設定を保存しました');
+    });
+
+    // ===================== 項目・ルールモーダル =====================
+    const renderShiftModal = () => {
+      const tbody = document.getElementById('shift-modal-body');
+      tbody.innerHTML = state.editingShiftTypes.map((t, i) => `
+        <tr class="border-b hover:bg-slate-50">
+          <td class="p-2 whitespace-nowrap">
+            <button data-tact="up" data-i="${i}" class="px-1.5 py-0.5 border rounded bg-white hover:bg-slate-200">↑</button>
+            <button data-tact="down" data-i="${i}" class="px-1.5 py-0.5 border rounded bg-white hover:bg-slate-200 ml-1">↓</button>
+          </td>
+          <td class="p-2"><input type="text" value="${esc(t.label)}" data-tact="label" data-i="${i}"
+            class="border border-slate-300 p-1 rounded w-full outline-none focus:border-blue-500 font-bold"></td>
+          <td class="p-2 text-center"><input type="checkbox" data-tact="am" data-i="${i}"${t.am ? ' checked' : ''} class="w-4 h-4 cursor-pointer"></td>
+          <td class="p-2 text-center"><input type="checkbox" data-tact="pm" data-i="${i}"${t.pm ? ' checked' : ''} class="w-4 h-4 cursor-pointer"></td>
+          <td class="p-2">
+            <select data-tact="bg" data-i="${i}" class="border border-slate-300 p-1 rounded w-full">
+              ${COLOR_CHOICES.map(c => `<option value="${c.value}"${c.value === t.bg ? ' selected' : ''}>${esc(c.label)}</option>`).join('')}
+            </select>
+          </td>
+          <td class="p-2">
+            <span class="inline-block border border-slate-400 px-3 py-1 font-bold ${t.bg}">${esc(t.label)}</span>
+            <span class="text-slate-500 ml-2">${t.am && t.pm ? '終日' : t.am ? '午前のみ' : t.pm ? '午後のみ' : '休み'}</span>
+          </td>
+          <td class="p-2 text-center">
+            <button data-tact="del" data-i="${i}" class="text-red-600 hover:text-white hover:bg-red-600 font-bold px-2 py-1 rounded border border-red-400 transition">削除</button>
+          </td>
+        </tr>`).join('');
+    };
+
+    document.getElementById('shift-modal-body').addEventListener('click', (e) => {
+      const b = e.target.closest('button');
+      if (!b) return;
+      const act = b.getAttribute('data-tact');
+      const i = parseInt(b.getAttribute('data-i'), 10);
+      if (act === 'up' || act === 'down') {
+        const dir = act === 'up' ? -1 : 1;
+        if (i + dir < 0 || i + dir >= state.editingShiftTypes.length) return;
+        const t = state.editingShiftTypes[i];
+        state.editingShiftTypes[i] = state.editingShiftTypes[i + dir];
+        state.editingShiftTypes[i + dir] = t;
+        renderShiftModal();
+      } else if (act === 'del') {
+        if (!confirm(`区分「${state.editingShiftTypes[i].label}」を削除しますか？`)) return;
+        state.editingShiftTypes.splice(i, 1);
+        renderShiftModal();
+      }
+    });
+
+    document.getElementById('shift-modal-body').addEventListener('change', (e) => {
+      const el = e.target;
+      const act = el.getAttribute('data-tact');
+      if (!act) return;
+      const i = parseInt(el.getAttribute('data-i'), 10);
+      const t = state.editingShiftTypes[i];
+      if (!t) return;
+      if (act === 'label') { t.label = el.value.trim(); renderShiftModal(); return; }
+      if (act === 'bg') { t.bg = el.value; renderShiftModal(); return; }
+      t[act] = el.checked;
+      renderShiftModal();
+    });
+
+    document.getElementById('btn-add-shift').addEventListener('click', () => {
+      state.editingShiftTypes.push(normShiftType({ label: '新規区分', am: true, pm: true, bg: 'bg-white' }));
+      renderShiftModal();
+    });
+
+    const renderPosModal = () => {
+      const tbody = document.getElementById('pos-modal-body');
+      tbody.innerHTML = state.editingPositions.map((p, i) => `
+        <tr class="border-b hover:bg-slate-50">
+          <td class="p-2 whitespace-nowrap">
+            <button data-pact="up" data-i="${i}" class="px-1.5 py-0.5 border rounded bg-white hover:bg-slate-200">↑</button>
+            <button data-pact="down" data-i="${i}" class="px-1.5 py-0.5 border rounded bg-white hover:bg-slate-200 ml-1">↓</button>
+          </td>
+          <td class="p-2"><input type="text" value="${esc(p.name)}" data-pact="name" data-i="${i}"
+            class="border border-slate-300 p-1 rounded w-full outline-none focus:border-blue-500 font-bold"></td>
+          <td class="p-2 text-center"><input type="checkbox" data-pact="am" data-i="${i}"${p.am ? ' checked' : ''} class="w-4 h-4 cursor-pointer"></td>
+          <td class="p-2 text-center"><input type="checkbox" data-pact="pm" data-i="${i}"${p.pm ? ' checked' : ''} class="w-4 h-4 cursor-pointer"></td>
+          <td class="p-2 text-center"><input type="number" min="1" max="9" value="${p.cap}" data-pact="cap" data-i="${i}"
+            class="border border-slate-300 p-1 rounded w-14 text-center"></td>
+          <td class="p-2 text-center"><input type="checkbox" data-pact="required" data-i="${i}"${p.required ? ' checked' : ''} class="w-4 h-4 cursor-pointer"></td>
+          <td class="p-2 text-center"><input type="checkbox" data-pact="allowSame" data-i="${i}"${p.allowSame ? ' checked' : ''} class="w-4 h-4 cursor-pointer"></td>
+          <td class="p-2 text-center"><input type="checkbox" data-pact="weeklyOnce" data-i="${i}"${p.weeklyOnce ? ' checked' : ''} class="w-4 h-4 cursor-pointer"></td>
+          <td class="p-2 text-center">
+            <button data-pact="del" data-i="${i}" class="text-red-600 hover:text-white hover:bg-red-600 font-bold px-2 py-1 rounded border border-red-400 transition">削除</button>
+          </td>
+        </tr>`).join('');
+    };
+
+    const renderRuleLists = () => {
+      const names = state.editingPositions.map(p => p.name);
+      const opt = (sel) => names.map(n => `<option value="${esc(n)}"${n === sel ? ' selected' : ''}>${esc(n)}</option>`).join('');
+      document.getElementById('bp-am').innerHTML = opt();
+      document.getElementById('bp-pm').innerHTML = opt();
+
+      document.getElementById('ban-pattern-list').innerHTML = state.editingBanPatterns.length
+        ? state.editingBanPatterns.map((bp, i) => `
+            <span class="inline-flex items-center gap-1 border border-slate-400 bg-slate-100 rounded px-2 py-1 text-xs font-bold">
+              午前 ${esc(bp[0])} → 午後 ${esc(bp[1])}
+              <button data-ract="delbp" data-i="${i}" class="text-red-600 hover:text-red-800" title="削除">✕</button>
+            </span>`).join('')
+        : '<span class="text-slate-500 text-xs">設定なし</span>';
+
+      const staffOpt = (sel) => state.editingStaffs.map(s => `<option value="${esc(s.id)}"${s.id === sel ? ' selected' : ''}>${esc(s.name)}</option>`).join('');
+      document.getElementById('bpair-a').innerHTML = staffOpt();
+      document.getElementById('bpair-b').innerHTML = staffOpt();
+
+      document.getElementById('ban-pair-list').innerHTML = state.editingBanPairs.length
+        ? state.editingBanPairs.map((bp, i) => {
+            const a = staffById(bp[0]), b = staffById(bp[1]);
+            return `<span class="inline-flex items-center gap-1 border border-slate-400 bg-slate-100 rounded px-2 py-1 text-xs font-bold">
+              ${esc(a ? a.name : bp[0])} × ${esc(b ? b.name : bp[1])}
+              <button data-ract="delpair" data-i="${i}" class="text-red-600 hover:text-red-800" title="削除">✕</button>
+            </span>`;
+          }).join('')
+        : '<span class="text-slate-500 text-xs">設定なし</span>';
+    };
+
+    document.getElementById('pos-modal-body').addEventListener('click', (e) => {
+      const b = e.target.closest('button');
+      if (!b) return;
+      const act = b.getAttribute('data-pact');
+      const i = parseInt(b.getAttribute('data-i'), 10);
+      if (act === 'up' || act === 'down') {
+        const dir = act === 'up' ? -1 : 1;
+        if (i + dir < 0 || i + dir >= state.editingPositions.length) return;
+        const t = state.editingPositions[i];
+        state.editingPositions[i] = state.editingPositions[i + dir];
+        state.editingPositions[i + dir] = t;
+        renderPosModal();
+      } else if (act === 'del') {
+        if (!confirm(`項目「${state.editingPositions[i].name}」を削除しますか？\n（すでに表に入っている文字はそのまま残ります）`)) return;
+        state.editingPositions.splice(i, 1);
+        renderPosModal();
+        renderRuleLists();
+      }
+    });
+
+    document.getElementById('pos-modal-body').addEventListener('change', (e) => {
+      const el = e.target;
+      const act = el.getAttribute('data-pact');
+      if (!act) return;
+      const i = parseInt(el.getAttribute('data-i'), 10);
+      const p = state.editingPositions[i];
+      if (!p) return;
+      if (act === 'name') { p.name = el.value.trim(); renderRuleLists(); return; }
+      if (act === 'cap') { p.cap = Math.min(9, Math.max(1, parseInt(el.value, 10) || 1)); el.value = p.cap; return; }
+      p[act] = el.checked;
+    });
+
+    document.getElementById('rule-modal').addEventListener('click', (e) => {
+      const b = e.target.closest('button');
+      if (!b) return;
+      const act = b.getAttribute('data-ract');
+      if (!act) return;
+      const i = parseInt(b.getAttribute('data-i'), 10);
+      if (act === 'delbp') state.editingBanPatterns.splice(i, 1);
+      if (act === 'delpair') state.editingBanPairs.splice(i, 1);
+      renderRuleLists();
+    });
+
+    document.getElementById('btn-add-bp').addEventListener('click', () => {
+      const a = document.getElementById('bp-am').value;
+      const b = document.getElementById('bp-pm').value;
+      if (!a || !b) return;
+      if (state.editingBanPatterns.some(p => p[0] === a && p[1] === b)) { showToast('同じ組み合わせが既にあります'); return; }
+      state.editingBanPatterns.push([a, b]);
+      renderRuleLists();
+    });
+
+    document.getElementById('btn-add-bpair').addEventListener('click', () => {
+      const a = document.getElementById('bpair-a').value;
+      const b = document.getElementById('bpair-b').value;
+      if (!a || !b) return;
+      if (a === b) { showToast('別々のスタッフを選んでください'); return; }
+      if (state.editingBanPairs.some(p => (p[0] === a && p[1] === b) || (p[0] === b && p[1] === a))) { showToast('同じ組み合わせが既にあります'); return; }
+      state.editingBanPairs.push([a, b]);
+      renderRuleLists();
+    });
+
+    document.getElementById('btn-add-pos').addEventListener('click', () => {
+      state.editingPositions.push(normPosition({ name: '新規項目', am: true, pm: true, cap: 1, required: false, allowSame: false, weeklyOnce: false }));
+      renderPosModal();
+      renderRuleLists();
+    });
+
+    document.getElementById('btn-rule-modal').addEventListener('click', () => {
+      state.editingPositions = JSON.parse(JSON.stringify(state.positions)).map(p => {
+        const n = normPosition(p); n._orig = p.name; return n;
+      });
+      state.editingShiftTypes = JSON.parse(JSON.stringify(state.shiftTypes)).map(normShiftType);
+      state.editingBanPatterns = JSON.parse(JSON.stringify(state.banPatterns));
+      state.editingBanPairs = JSON.parse(JSON.stringify(state.banPairs));
+      state.editingStaffs = JSON.parse(JSON.stringify(state.staffMembers));
+      renderShiftModal();
+      renderPosModal();
+      renderRuleLists();
+      openModal('rule-modal');
+    });
+    document.getElementById('btn-close-rule-modal').addEventListener('click', () => closeModal('rule-modal'));
+    document.getElementById('btn-cancel-rule').addEventListener('click', () => closeModal('rule-modal'));
+
+    document.getElementById('btn-save-rule').addEventListener('click', () => {
+      const types = state.editingShiftTypes;
+      if (types.length === 0) { showToast('出勤・休みの区分は1つ以上必要です'); return; }
+      const labels = types.map(t => String(t.label || '').trim());
+      if (labels.some(l => !l)) { showToast('区分の表示名が空の行があります'); return; }
+      if (new Set(labels).size !== labels.length) { showToast('同じ表示名の区分が重複しています'); return; }
+      if (!types.some(t => t.am || t.pm)) { showToast('出勤する区分（午前か午後にチェック）が1つ必要です'); return; }
+
+      const rows = state.editingPositions;
+      if (rows.length === 0) { showToast('項目は1つ以上必要です'); return; }
+      const names = rows.map(p => String(p.name || '').trim());
+      if (names.some(n => !n)) { showToast('項目名が空の行があります'); return; }
+      if (new Set(names).size !== names.length) { showToast('同じ項目名が重複しています'); return; }
+      if (names.indexOf(NONE) >= 0) { showToast(`「${NONE}」は項目名に使えません`); return; }
+      if (rows.some(p => !p.am && !p.pm)) { showToast('午前・午後のどちらにもチェックが無い項目があります'); return; }
+
+      pushUndo();
+      state.shiftTypes = types.map(normShiftType);
+
+      // 項目名の変更を、保存済みの表とスタッフ設定にも反映する
+      const renames = {};
+      rows.forEach(p => {
+        const orig = p._orig;
+        if (orig && orig !== p.name) renames[orig] = p.name;
+      });
+      if (Object.keys(renames).length) {
+        for (const dateStr in state.assignData) {
+          const rec = state.assignData[dateStr];
+          for (const sid in rec) {
+            ['am', 'pm'].forEach(slot => {
+              const v = rec[sid][slot];
+              if (v && renames[v]) rec[sid][slot] = renames[v];
+            });
+          }
+        }
+        state.staffMembers.forEach(s => {
+          if (s.fixed && renames[s.fixed]) s.fixed = renames[s.fixed];
+          s.allowed = s.allowed.map(n => renames[n] || n);
+        });
+        state.editingBanPatterns = state.editingBanPatterns.map(bp => [renames[bp[0]] || bp[0], renames[bp[1]] || bp[1]]);
+      }
+
+      state.positions = rows.map(p => normPosition({
+        name: p.name, am: p.am, pm: p.pm, cap: p.cap,
+        required: p.required, allowSame: p.allowSame, weeklyOnce: p.weeklyOnce
+      }));
+      const valid = state.positions.map(p => p.name);
+      state.banPatterns = state.editingBanPatterns.filter(bp => valid.indexOf(bp[0]) >= 0 && valid.indexOf(bp[1]) >= 0);
+      state.banPairs = state.editingBanPairs.slice();
+      state.staffMembers.forEach(s => {
+        if (s.fixed && valid.indexOf(s.fixed) < 0) s.fixed = '';
+        s.allowed = s.allowed.filter(n => valid.indexOf(n) >= 0);
+      });
+
+      saveState();
+      closeModal('rule-modal');
+      renderTable();
+      showToast('区分・項目・ルールを保存しました');
+    });
+
+    // ===================== 起動 =====================
+    if (!window.tailwind) {
+      document.getElementById('cdn-warn').classList.remove('hidden');
+    }
+    renderTable();
+    updateUndoBtn();
+    if (firstRun) {
+      // 初回だけ、新ルールに沿ったサンプル週を自動で組む
+      try { runAutoGenerate(); } catch (e) { console.error(e); }
+    }
+  })();
+  </script>
+</body>
+</html>
